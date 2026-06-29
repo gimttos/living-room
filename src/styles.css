@@ -1,5 +1,13 @@
-/* 단계 1: 빈 창 플레이스홀더 스타일. 단계 6에서 방 배경/테마로 발전한다. */
+/* 리빙룸 v1 — 거실 UI */
 :root {
+  --bg: #f3ece1;
+  --panel: #fbf7f0;
+  --panel-border: #e3d8c7;
+  --ink: #4a3f34;
+  --ink-soft: #7a6a57;
+  --accent: #7a5cff;
+  --accent-soft: #efeaff;
+  --danger: #c2553f;
   font-family: "Pretendard", Inter, "Apple SD Gothic Neo", "Malgun Gothic",
     system-ui, sans-serif;
   -webkit-font-smoothing: antialiased;
@@ -9,65 +17,257 @@
 * {
   box-sizing: border-box;
 }
-
 html,
 body {
   margin: 0;
   height: 100%;
-}
-
-body {
-  /* 따뜻한 거실 느낌의 은은한 배경 (warm 테마 프리뷰) */
-  background: radial-gradient(120% 120% at 50% 0%, #f7efe4 0%, #efe2d2 60%, #e7d6c2 100%);
-  color: #4a3f34;
   overflow: hidden;
 }
 
-.room-empty {
+#app {
   height: 100%;
   display: flex;
-  align-items: center;
-  justify-content: center;
+  flex-direction: column;
+  color: var(--ink);
+  background: var(--bg);
   user-select: none;
 }
 
-.room-empty__inner {
-  text-align: center;
-  opacity: 0.92;
+/* ---------- 상단 바 ---------- */
+#topbar {
+  height: 48px;
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 0 16px;
+  background: var(--panel);
+  border-bottom: 1px solid var(--panel-border);
 }
-
-.room-empty__title {
-  margin: 0 0 0.4rem;
-  font-size: 2.6rem;
+.topbar__title {
   font-weight: 700;
-  letter-spacing: 0.04em;
-  color: #5b4a38;
-}
-
-.room-empty__sub {
-  margin: 0 0 0.2rem;
   font-size: 1.05rem;
-  color: #7a6a57;
+  letter-spacing: 0.03em;
+}
+.topbar__spacer {
+  flex: 1;
+}
+.topbar__theme {
+  font-size: 0.85rem;
+  color: var(--ink-soft);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.topbar__theme select {
+  font: inherit;
+  padding: 4px 8px;
+  border-radius: 7px;
+  border: 1px solid var(--panel-border);
+  background: #fff;
+  color: var(--ink);
+}
+.save-status {
+  font-size: 0.8rem;
+  color: var(--ink-soft);
+  min-width: 56px;
+  text-align: right;
+}
+.save-status[data-state="saved"] {
+  color: #5a9a6a;
+}
+.save-status[data-state="saving"] {
+  color: var(--ink-soft);
+}
+.save-status[data-state="dirty"] {
+  color: #b89146;
+}
+.save-status[data-state="error"] {
+  color: var(--danger);
 }
 
-.room-empty__hint {
-  margin: 0;
-  font-size: 0.9rem;
-  color: #a3917b;
+/* ---------- 본문 ---------- */
+#body {
+  flex: 1;
+  display: flex;
+  min-height: 0;
+}
+
+/* 좌측 패널 */
+#sidebar {
+  flex: 0 0 132px;
+  background: var(--panel);
+  border-right: 1px solid var(--panel-border);
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.sidebar__group {
+  margin-top: 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.btn {
+  font: inherit;
+  font-size: 0.86rem;
+  padding: 8px 10px;
+  border-radius: 8px;
+  border: 1px solid var(--panel-border);
+  background: #fff;
+  color: var(--ink);
+  cursor: pointer;
+  transition: background 0.12s, border-color 0.12s, opacity 0.12s;
+}
+.btn:hover:not(:disabled) {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+.btn:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+.btn--primary {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+  font-weight: 600;
+}
+.btn--primary:hover:not(:disabled) {
+  background: #6a4cf0;
+}
+.btn--danger:hover:not(:disabled) {
+  border-color: var(--danger);
+  background: #f7e7e3;
+  color: var(--danger);
+}
+.iconbtn {
+  border: none;
+  background: transparent;
+  font-size: 0.95rem;
+  cursor: pointer;
+  color: var(--ink-soft);
+  padding: 2px 6px;
+  border-radius: 6px;
+}
+.iconbtn:hover {
+  background: #eee;
+}
+
+/* 캔버스 영역 */
+#canvas-wrap {
+  position: relative;
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+}
+#stage {
+  position: absolute;
+  inset: 0;
+}
+#canvas-wrap.is-dragover::after {
+  content: "여기에 놓기";
+  position: absolute;
+  inset: 12px;
+  border: 2.5px dashed var(--accent);
+  border-radius: 16px;
+  background: rgba(122, 92, 255, 0.06);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.1rem;
+  color: var(--accent);
+  pointer-events: none;
+  z-index: 5;
+}
+
+.empty-hint {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1rem;
+  color: var(--ink-soft);
+  opacity: 0.65;
+  pointer-events: none;
+}
+
+/* ---------- 편집 패널 ---------- */
+.edit-panel {
+  position: absolute;
+  right: 16px;
+  top: 16px;
+  width: 236px;
+  background: var(--panel);
+  border: 1px solid var(--panel-border);
+  border-radius: 12px;
+  box-shadow: 0 8px 28px rgba(80, 60, 40, 0.16);
+  padding: 12px 14px 14px;
+  z-index: 8;
+}
+.edit-panel__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 10px;
+}
+.edit-panel__body {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.slider {
+  display: grid;
+  grid-template-columns: 40px 1fr;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.8rem;
+  color: var(--ink-soft);
+}
+.slider input[type="range"] {
+  width: 100%;
+  accent-color: var(--accent);
+}
+.edit-panel__foot {
+  display: flex;
+  gap: 8px;
+  margin-top: 12px;
+}
+.edit-panel__foot .btn {
+  flex: 1;
+}
+.crop-controls {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 12px;
+  padding-top: 10px;
+  border-top: 1px solid var(--panel-border);
+}
+.crop-controls__hint {
+  flex: 1;
+  font-size: 0.74rem;
+  color: var(--ink-soft);
 }
 
 @media (prefers-color-scheme: dark) {
-  body {
-    background: radial-gradient(120% 120% at 50% 0%, #2a2620 0%, #211d18 60%, #181512 100%);
-    color: #d8ccbb;
+  :root {
+    --bg: #1b1813;
+    --panel: #242019;
+    --panel-border: #3a3329;
+    --ink: #e3d8c7;
+    --ink-soft: #a99a85;
+    --accent-soft: #2c2640;
   }
-  .room-empty__title {
-    color: #e8dcc8;
+  .topbar__theme select,
+  .btn {
+    background: #2c281f;
+    color: var(--ink);
   }
-  .room-empty__sub {
-    color: #b8a892;
-  }
-  .room-empty__hint {
-    color: #8a7c69;
+  .iconbtn:hover {
+    background: #332e25;
   }
 }

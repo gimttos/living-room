@@ -1,0 +1,93 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="stylesheet" href="/src/styles.css" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>리빙룸</title>
+    <script type="module" src="/src/main.js"></script>
+  </head>
+  <body>
+    <div id="app">
+      <header id="topbar">
+        <span class="topbar__title">거실</span>
+        <div class="topbar__spacer"></div>
+        <label class="topbar__theme">
+          배경
+          <select id="theme-select">
+            <option value="warm">따뜻한 낮</option>
+            <option value="night">고요한 밤</option>
+          </select>
+        </label>
+        <span id="save-status" class="save-status" data-state="saved">저장됨 ●</span>
+      </header>
+
+      <div id="body">
+        <aside id="sidebar">
+          <button id="btn-add" class="btn btn--primary">＋ 이미지</button>
+          <div class="sidebar__group">
+            <button id="btn-edit" class="btn" data-needs-selection disabled>편집</button>
+            <button id="btn-front" class="btn" data-needs-selection disabled>앞으로</button>
+            <button id="btn-back" class="btn" data-needs-selection disabled>뒤로</button>
+            <button id="btn-lock" class="btn" data-needs-selection disabled>잠금</button>
+            <button id="btn-delete" class="btn btn--danger" data-needs-selection disabled>삭제</button>
+          </div>
+        </aside>
+
+        <main id="canvas-wrap">
+          <div id="stage"></div>
+          <div id="empty-hint" class="empty-hint">
+            이미지를 끌어다 놓아 거실을 꾸며보세요
+          </div>
+
+          <!-- 편집 패널 (단계 5) -->
+          <section id="edit-panel" class="edit-panel" hidden>
+            <header class="edit-panel__head">
+              <strong>편집</strong>
+              <button id="edit-close" class="iconbtn" title="닫기">✕</button>
+            </header>
+
+            <div class="edit-panel__body" id="edit-filters">
+              <label class="slider">
+                <span>밝기</span>
+                <input type="range" id="f-brightness" min="-1" max="1" step="0.02" value="0" />
+              </label>
+              <label class="slider">
+                <span>채도</span>
+                <input type="range" id="f-saturation" min="-1" max="1" step="0.02" value="0" />
+              </label>
+              <label class="slider">
+                <span>색조</span>
+                <input type="range" id="f-hue" min="0" max="360" step="1" value="0" />
+              </label>
+              <label class="slider">
+                <span>대비</span>
+                <input type="range" id="f-contrast" min="-1" max="1" step="0.02" value="0" />
+              </label>
+            </div>
+
+            <footer class="edit-panel__foot">
+              <button id="btn-crop" class="btn">크롭</button>
+              <button id="btn-reset" class="btn">원래대로</button>
+            </footer>
+
+            <!-- 크롭 모드 컨트롤 -->
+            <div id="crop-controls" class="crop-controls" hidden>
+              <span class="crop-controls__hint">자를 영역을 조절하세요</span>
+              <button id="crop-apply" class="btn btn--primary">적용</button>
+              <button id="crop-cancel" class="btn">취소</button>
+            </div>
+          </section>
+        </main>
+      </div>
+    </div>
+
+    <input
+      type="file"
+      id="file-input"
+      accept="image/png,image/jpeg,image/webp"
+      multiple
+      hidden
+    />
+  </body>
+</html>
