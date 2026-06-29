@@ -26,6 +26,7 @@
   "bundle": {
     "active": true,
     "targets": ["nsis"],
+    "createUpdaterArtifacts": true,
     "icon": [
       "icons/32x32.png",
       "icons/128x128.png",
@@ -33,5 +34,13 @@
       "icons/icon.icns",
       "icons/icon.ico"
     ]
+  },
+  "plugins": {
+    "updater": {
+      "endpoints": [
+        "https://github.com/gimttos/living-room/releases/latest/download/latest.json"
+      ],
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDQxQ0MyNEI3Q0JGRjBEMTcKUldRWERmL0x0eVRNUVpwaEFDRy9SQWx2Y014YjVnY3dXa1d4N3pYTTFZTUpabmQ0cTF4REtQb3kK"
+    }
   }
 }

@@ -109,6 +109,30 @@ body {
   flex-direction: column;
   gap: 6px;
 }
+.sidebar__footer {
+  margin-top: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding-top: 10px;
+  border-top: 1px solid var(--panel-border);
+}
+.toggle {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.74rem;
+  color: var(--ink-soft);
+  cursor: pointer;
+}
+.toggle input {
+  accent-color: var(--accent);
+}
+.btn--ghost {
+  font-size: 0.74rem;
+  padding: 6px 8px;
+  color: var(--ink-soft);
+}
 
 .btn {
   font: inherit;

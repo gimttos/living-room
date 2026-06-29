@@ -19,6 +19,7 @@ import {
   objectCount,
 } from "./js/canvas.js";
 import { initImports } from "./js/imports.js";
+import { initAutostartToggle, checkForUpdates } from "./js/system.js";
 
 const $ = (id) => document.getElementById(id);
 
@@ -46,6 +47,8 @@ const el = {
   cropControls: $("crop-controls"),
   cropApply: $("crop-apply"),
   cropCancel: $("crop-cancel"),
+  autostartToggle: $("autostart-toggle"),
+  btnUpdate: $("btn-update"),
 };
 
 const STATUS_TEXT = {
@@ -87,9 +90,30 @@ async function boot() {
   wireToolbar();
   wireEditPanel();
   wireGlobalKeys();
+  wireSystem();
 
   // 종료 전 마지막 저장 (best effort)
   window.addEventListener("beforeunload", () => room.save());
+
+  // 시작 시 조용히 업데이트 확인
+  checkForUpdates({ silent: true });
+}
+
+function wireSystem() {
+  initAutostartToggle(el.autostartToggle);
+  el.btnUpdate.addEventListener("click", async () => {
+    const prev = el.btnUpdate.textContent;
+    el.btnUpdate.disabled = true;
+    el.btnUpdate.textContent = "확인 중…";
+    await checkForUpdates({
+      silent: false,
+      onStatus: (msg) => (el.btnUpdate.textContent = msg),
+    });
+    setTimeout(() => {
+      el.btnUpdate.textContent = prev;
+      el.btnUpdate.disabled = false;
+    }, 2500);
+  });
 }
 
 function onSelection(info) {
