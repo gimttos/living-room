@@ -72,9 +72,21 @@
   - 설치 파일: `src-tauri/target/release/bundle/nsis/리빙룸_<ver>_x64-setup.exe`
 - **Windows 번들은 NSIS만 사용** (`tauri.conf.json` → `bundle.targets: ["nsis"]`).
   WiX MSI는 한글 제품명("리빙룸")에서 `light.exe`가 크래시함 → 쓰지 말 것. NSIS는 유니코드 안전 + Tauri updater 친화.
-- **git:** D 드라이브가 소유권 미기록이라 `safe.directory` 예외가 필요했음(전역 설정 완료). 원격: `origin` = github.com/gimttos/living-room (private), 기본 브랜치 `main`.
+- **git:** D 드라이브가 소유권 미기록이라 `safe.directory` 예외가 필요했음(전역 설정 완료). 원격: `origin` = github.com/gimttos/living-room (**public** — updater가 인증 없이 릴리즈를 받아야 해서), 기본 브랜치 `main`.
 - 무거운 첫 병렬 릴리즈 빌드가 VS 설치 직후 한 번 일시적으로 크래시(ACCESS_VIOLATION)한 적 있음 → 재시도하면 됨. 필요시 `$env:CARGO_BUILD_JOBS="4"`로 병렬도 낮춤.
 
-## 단계 진행 현황
-- ✅ **단계 1 완료** (커밋 `aeb8127`): 환경 세팅, Tauri v2 빈 창, NSIS 설치 파일, 바탕화면 바로가기, GitHub 비공개 레포.
-- ▶ 다음: **단계 2** — Konva 기본(이미지 1장 드래그·리사이즈·회전).
+## 배포 / 서명 / 자동 업데이트 (단계 7)
+- **서명 키(절대 분실/공개 금지, 백업 필수):** `.tauri/livingroom.key`(개인키), `.tauri/signing-password.txt`(비번), `.tauri/livingroom.key.pub`(공개키). **`.tauri/`는 git 제외.** 공개키는 `tauri.conf.json`의 `plugins.updater.pubkey`에 박혀 있음.
+- **서명 빌드:** PATH 설정 후
+  `$env:TAURI_SIGNING_PRIVATE_KEY=(Get-Content .tauri/livingroom.key -Raw).Trim()`
+  `$env:TAURI_SIGNING_PRIVATE_KEY_PASSWORD=(Get-Content .tauri/signing-password.txt -Raw).Trim()`
+  `npm run tauri build` → `bundle/nsis/`에 `*-setup.exe` + `*-setup.exe.sig` 생성.
+  (주의: PowerShell은 빈 문자열 env를 못 만듦 → 키는 반드시 비번 있게.)
+- **릴리즈 절차(매 새 버전):** ① `tauri.conf.json`·`Cargo.toml`·`package.json` 버전 동시 올림 → ② 서명 빌드 → ③ 설치본을 **ASCII 이름으로 복사**(GitHub 에셋이 한글명 변형하므로) → ④ `latest.json` 작성(version, signature=.sig 내용, url=ASCII 설치본) **BOM 없는 UTF-8** → ⑤ `gh release create vX.Y.Z ... <ascii-setup.exe> <latest.json>`.
+- **updater 엔드포인트:** `https://github.com/gimttos/living-room/releases/latest/download/latest.json` (config에 박힘). 앱은 시작 시 조용히 확인 + 사이드바 "업데이트 확인" 버튼.
+- 자동 업데이트 0.1.0→0.1.1 종단 검증 완료(설치본이 부팅 시 스스로 갱신·재시작).
+
+## 단계 진행 현황 — v1 거실 **완료** ✅
+- ✅ 단계 1 환경/빈 창 · 2~3 이미지 배치 · 4 저장/복원 · 5 편집(크롭+색조) · 6 배경 테마 · 7 배포+트레이+자동업데이트.
+- 현재 버전 **0.1.1** 릴리즈됨. 설치본 배포 + 자동 업데이트 동작.
+- **다음(스펙대로 v1 이후):** 진열장(v2)·공방(v3) 등 새 방, 또는 폴리시 단계의 [[transparent-overlay-idea]]. 엔진(오브젝트+캔버스)은 재사용하고 "새 오브젝트 타입/새 방"만 더하는 식.
