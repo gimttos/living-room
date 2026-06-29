@@ -86,7 +86,19 @@
 - **updater 엔드포인트:** `https://github.com/gimttos/living-room/releases/latest/download/latest.json` (config에 박힘). 앱은 시작 시 조용히 확인 + 사이드바 "업데이트 확인" 버튼.
 - 자동 업데이트 0.1.0→0.1.1 종단 검증 완료(설치본이 부팅 시 스스로 갱신·재시작).
 
+## 바탕화면 오버레이 모드 (스펙 외, v1 이후 추가)
+한 창이 3상태를 오감 (`src/js/overlay.js`): **windowed**(최대화 borderless + 커스텀 타이틀바) ⇄ **overlay-display**(투명 풀스크린 + 클릭통과 + 배경숨김 + 물러남) ⇄ **overlay-edit**(클릭통과 해제 + 떠있는 도구막대).
+- 토글: 전역 단축키 **Ctrl+Alt+L**(오버레이), **Ctrl+Alt+E**(편집/전시) + 트레이 메뉴. 마지막 모드는 `settings.json`(AppData)에 저장→복원.
+- 창은 **항상 borderless**(`tauri.conf` `decorations:false`) + `transparent:true` + `maximized:true`. 일반/오버레이 둘 다 화면을 꽉 채움.
+- 함정(다음 작업 시 주의):
+  - **런타임 `setDecorations(false)`가 transparent 창에서 안 먹음** → borderless로 생성하고 windowed는 CSS 커스텀 타이틀바(`data-tauri-drag-region` + 최소화/트레이닫기)로 처리.
+  - **tao는 borderless여도 WS_CAPTION 스타일 비트를 유지** → GetWindowLong 스타일 비트로 "데코 있냐"를 판정하면 안 됨(헤드리스 검증 시 함정). 풀스크린 전환은 **창 크기 비교**로 검증.
+  - **global-shortcut 권한:** `global-shortcut:default`엔 register가 없음 → `allow-register`/`allow-unregister`/`allow-unregister-all` 명시. 단축키 문자열은 `CommandOrControl+...`(CmdOrCtrl 아님).
+  - **Vite watch:** `server.watch.ignored: ["**/src-tauri/**"]` 없으면 Rust 빌드 산출물 변동에 워처가 크래시.
+  - 창 제어용 `core:window:allow-*`(set-decorations/ignore-cursor-events/size/position/skip-taskbar/maximize/unmaximize/minimize/start-dragging/current-monitor 등) 권한 필요.
+  - **dev console 디버깅:** Vite가 webview `console.warn`/`error`만 dev 로그로 포워딩(.log는 안 됨).
+
 ## 단계 진행 현황 — v1 거실 **완료** ✅
-- ✅ 단계 1 환경/빈 창 · 2~3 이미지 배치 · 4 저장/복원 · 5 편집(크롭+색조) · 6 배경 테마 · 7 배포+트레이+자동업데이트.
-- 현재 버전 **0.1.1** 릴리즈됨. 설치본 배포 + 자동 업데이트 동작.
-- **다음(스펙대로 v1 이후):** 진열장(v2)·공방(v3) 등 새 방, 또는 폴리시 단계의 [[transparent-overlay-idea]]. 엔진(오브젝트+캔버스)은 재사용하고 "새 오브젝트 타입/새 방"만 더하는 식.
+- ✅ 단계 1 환경/빈 창 · 2~3 이미지 배치 · 4 저장/복원 · 5 편집(크롭+색조) · 6 배경 테마 · 7 배포+트레이+자동업데이트. + 바탕화면 오버레이 모드.
+- 현재 버전 **0.1.1** 릴리즈됨. 설치본 배포 + 자동 업데이트 동작. (오버레이는 아직 릴리즈 빌드/업로드 전 — 다음에 버전 올려 배포하면 됨.)
+- **다음(스펙대로 v1 이후):** 진열장(v2)·공방(v3) 등 새 방. 엔진(오브젝트+캔버스)은 재사용하고 "새 오브젝트 타입/새 방"만 더하는 식. 관련 [[transparent-overlay-idea]].
