@@ -13,6 +13,7 @@ export const SCHEMA_VERSION = 1;
 export const ROOM_PATH = "rooms/living-room.json";
 export const ROOMS_DIR = "rooms";
 export const IMAGES_DIR = "assets/images";
+export const SETTINGS_PATH = "settings.json";
 
 // 허용 이미지 타입 (정적만)
 export const ACCEPTED_TYPES = ["image/png", "image/jpeg", "image/webp"];

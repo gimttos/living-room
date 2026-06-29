@@ -1,7 +1,7 @@
 use tauri::{
     menu::{Menu, MenuItem},
     tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent},
-    AppHandle, Manager, WindowEvent,
+    AppHandle, Emitter, Manager, WindowEvent,
 };
 
 // 메인 창을 보이게/포커스
@@ -21,21 +21,25 @@ pub fn run() {
         .plugin(tauri_plugin_process::init())
         .plugin(tauri_plugin_updater::Builder::new().build());
 
-    // autostart: 데스크탑에서만. (모바일 빌드에는 미포함)
+    // autostart + global-shortcut: 데스크탑에서만. (모바일 빌드에는 미포함)
     #[cfg(desktop)]
     {
-        builder = builder.plugin(tauri_plugin_autostart::init(
-            tauri_plugin_autostart::MacosLauncher::LaunchAgent,
-            None,
-        ));
+        builder = builder
+            .plugin(tauri_plugin_autostart::init(
+                tauri_plugin_autostart::MacosLauncher::LaunchAgent,
+                None,
+            ))
+            .plugin(tauri_plugin_global_shortcut::Builder::new().build());
     }
 
     builder
         .setup(|app| {
-            // 트레이 메뉴: 열기 / 종료
+            // 트레이 메뉴: 열기 / 오버레이 전환 / 편집·전시 / 종료
             let show = MenuItem::with_id(app, "show", "열기", true, None::<&str>)?;
+            let overlay = MenuItem::with_id(app, "overlay", "오버레이 전환", true, None::<&str>)?;
+            let editmode = MenuItem::with_id(app, "editmode", "편집/전시 전환", true, None::<&str>)?;
             let quit = MenuItem::with_id(app, "quit", "종료", true, None::<&str>)?;
-            let menu = Menu::with_items(app, &[&show, &quit])?;
+            let menu = Menu::with_items(app, &[&show, &overlay, &editmode, &quit])?;
 
             TrayIconBuilder::with_id("main")
                 .icon(app.default_window_icon().unwrap().clone())
@@ -44,6 +48,12 @@ pub fn run() {
                 .show_menu_on_left_click(false)
                 .on_menu_event(|app, event| match event.id.as_ref() {
                     "show" => show_main(app),
+                    "overlay" => {
+                        let _ = app.emit("overlay:toggle", ());
+                    }
+                    "editmode" => {
+                        let _ = app.emit("overlay:toggle-edit", ());
+                    }
                     "quit" => app.exit(0),
                     _ => {}
                 })

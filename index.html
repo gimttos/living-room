@@ -9,9 +9,10 @@
   </head>
   <body>
     <div id="app">
-      <header id="topbar">
-        <span class="topbar__title">거실</span>
-        <div class="topbar__spacer"></div>
+      <header id="topbar" data-tauri-drag-region>
+        <span class="topbar__title" data-tauri-drag-region>거실</span>
+        <div class="topbar__spacer" data-tauri-drag-region></div>
+        <button id="btn-overlay" class="btn btn--ghost" title="바탕화면 오버레이로 (Ctrl+Alt+L)">🖼 오버레이로</button>
         <label class="topbar__theme">
           배경
           <select id="theme-select">
@@ -20,6 +21,10 @@
           </select>
         </label>
         <span id="save-status" class="save-status" data-state="saved">저장됨 ●</span>
+        <div class="win-controls">
+          <button id="btn-min" class="winbtn" title="최소화">─</button>
+          <button id="btn-close" class="winbtn winbtn--close" title="트레이로 닫기">✕</button>
+        </div>
       </header>
 
       <div id="body">
@@ -31,6 +36,11 @@
             <button id="btn-back" class="btn" data-needs-selection disabled>뒤로</button>
             <button id="btn-lock" class="btn" data-needs-selection disabled>잠금</button>
             <button id="btn-delete" class="btn btn--danger" data-needs-selection disabled>삭제</button>
+          </div>
+
+          <div class="sidebar__overlay-controls" id="overlay-controls">
+            <button id="btn-to-display" class="btn" title="전시 모드 (Ctrl+Alt+E)">👁 전시 모드</button>
+            <button id="btn-exit-overlay" class="btn" title="일반 창으로 (Ctrl+Alt+L)">🗗 창으로</button>
           </div>
 
           <div class="sidebar__footer">

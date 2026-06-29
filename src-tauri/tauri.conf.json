@@ -16,7 +16,10 @@
         "title": "리빙룸",
         "width": 1100,
         "height": 720,
-        "dragDropEnabled": false
+        "maximized": true,
+        "dragDropEnabled": false,
+        "transparent": true,
+        "decorations": false
       }
     ],
     "security": {

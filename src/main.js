@@ -20,6 +20,9 @@ import {
 } from "./js/canvas.js";
 import { initImports } from "./js/imports.js";
 import { initAutostartToggle, checkForUpdates } from "./js/system.js";
+import { loadSettings } from "./js/settings.js";
+import { initOverlay, toggleOverlay, toggleEdit } from "./js/overlay.js";
+import { getCurrentWindow } from "@tauri-apps/api/window";
 
 const $ = (id) => document.getElementById(id);
 
@@ -49,6 +52,11 @@ const el = {
   cropCancel: $("crop-cancel"),
   autostartToggle: $("autostart-toggle"),
   btnUpdate: $("btn-update"),
+  btnOverlay: $("btn-overlay"),
+  btnToDisplay: $("btn-to-display"),
+  btnExitOverlay: $("btn-exit-overlay"),
+  btnMin: $("btn-min"),
+  btnClose: $("btn-close"),
 };
 
 const STATUS_TEXT = {
@@ -62,6 +70,7 @@ let current = null; // 현재 선택 정보
 
 async function boot() {
   await ensureDirs();
+  const settings = await loadSettings();
   await room.load();
 
   room.onStatus((s) => {
@@ -91,12 +100,27 @@ async function boot() {
   wireEditPanel();
   wireGlobalKeys();
   wireSystem();
+  wireOverlay();
 
   // 종료 전 마지막 저장 (best effort)
   window.addEventListener("beforeunload", () => room.save());
 
   // 시작 시 조용히 업데이트 확인
   checkForUpdates({ silent: true });
+
+  // 오버레이: 트레이/단축키 배선 + 마지막 모드 복원
+  await initOverlay({ restore: settings, onModeChange: () => {} });
+}
+
+function wireOverlay() {
+  el.btnOverlay.addEventListener("click", () => toggleEdit()); // 일반창→편집 오버레이로
+  el.btnToDisplay.addEventListener("click", () => toggleEdit()); // 편집→전시
+  el.btnExitOverlay.addEventListener("click", () => toggleOverlay()); // 오버레이→일반창
+
+  // 커스텀 타이틀바 (창은 borderless)
+  const win = getCurrentWindow();
+  el.btnMin.addEventListener("click", () => win.minimize());
+  el.btnClose.addEventListener("click", () => win.hide()); // 닫기 = 트레이로 (Ambient)
 }
 
 function wireSystem() {

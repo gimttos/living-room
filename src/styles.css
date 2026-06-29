@@ -73,6 +73,36 @@ body {
   min-width: 56px;
   text-align: right;
 }
+
+/* 커스텀 타이틀바 (창은 borderless) */
+#topbar {
+  cursor: default;
+}
+#topbar [data-tauri-drag-region] {
+  -webkit-user-select: none;
+}
+.win-controls {
+  display: flex;
+  gap: 2px;
+  margin-left: 6px;
+}
+.winbtn {
+  width: 30px;
+  height: 30px;
+  border: none;
+  background: transparent;
+  color: var(--ink-soft);
+  font-size: 0.85rem;
+  border-radius: 7px;
+  cursor: pointer;
+}
+.winbtn:hover {
+  background: rgba(120, 90, 60, 0.12);
+}
+.winbtn--close:hover {
+  background: #e6584615;
+  color: var(--danger);
+}
 .save-status[data-state="saved"] {
   color: #5a9a6a;
 }
@@ -275,6 +305,62 @@ body {
   flex: 1;
   font-size: 0.74rem;
   color: var(--ink-soft);
+}
+
+/* ---------- 오버레이 모드 ---------- */
+/* 전시: 투명 배경 + 크롬 숨김, 이미지만 떠 있음 (클릭통과는 창 레벨에서) */
+body.overlay-mode {
+  background: transparent;
+}
+body.overlay-mode #app {
+  background: transparent;
+}
+body.overlay-mode #topbar {
+  display: none;
+}
+body.overlay-mode #empty-hint {
+  display: none;
+}
+/* 사이드바: 전시 모드엔 숨김 */
+body.overlay-mode #sidebar {
+  display: none;
+}
+body.overlay-mode #canvas-wrap.is-dragover::after {
+  border-radius: 0;
+  inset: 0;
+}
+
+/* 편집 모드: 사이드바를 떠있는 반투명 도구막대로 */
+body.overlay-mode.edit-mode #sidebar {
+  display: flex;
+  position: absolute;
+  left: 16px;
+  top: 16px;
+  bottom: auto;
+  width: auto;
+  min-width: 124px;
+  border: 1px solid var(--panel-border);
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--panel) 88%, transparent);
+  backdrop-filter: blur(8px);
+  box-shadow: 0 8px 28px rgba(60, 45, 30, 0.28);
+  z-index: 20;
+}
+/* 오버레이에선 자동실행/업데이트 푸터 숨김 */
+body.overlay-mode .sidebar__footer {
+  display: none;
+}
+/* 오버레이 전환 컨트롤: 평소 숨김, 편집 모드에서만 표시 */
+.sidebar__overlay-controls {
+  display: none;
+}
+body.overlay-mode.edit-mode .sidebar__overlay-controls {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px solid var(--panel-border);
 }
 
 @media (prefers-color-scheme: dark) {

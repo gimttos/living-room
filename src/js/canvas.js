@@ -8,6 +8,7 @@ import { loadImageEl } from "./imageProcessing.js";
 
 let stage, bgLayer, objLayer, uiLayer, transformer;
 let onSelectionChange = () => {};
+let bgVisible = true; // 오버레이 전시에선 false (순수 떠다니는 이미지)
 
 const nodeById = new Map(); // id -> Konva.Image
 const urlById = new Map(); // id -> objectURL (해제용)
@@ -62,7 +63,20 @@ function resize() {
 }
 
 // ---------- 배경 / 테마 ----------
+// 오버레이 전시 모드: 배경(벽/바닥/선반) 숨겨 이미지만 떠 있게.
+export function setBackgroundVisible(visible) {
+  bgVisible = visible;
+  if (visible) {
+    bgLayer.show();
+    renderBackground();
+  } else {
+    bgLayer.hide();
+    bgLayer.batchDraw();
+  }
+}
+
 export function renderBackground() {
+  if (!bgVisible) return;
   bgLayer.destroyChildren();
   const w = stage.width();
   const h = stage.height();
