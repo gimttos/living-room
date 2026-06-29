@@ -15,6 +15,9 @@ dist-ssr
 # Tauri updater signing keys (NEVER commit — back these up separately!)
 .tauri/
 
+# Local release asset staging
+release-staging/
+
 # Claude Code local settings
 .claude/settings.local.json
 
