@@ -61,7 +61,20 @@
 - 막히면 해당 단계의 "할 일"만 떼서 다시 본다.
 - 커밋은 게이트 통과 시점마다.
 
-## 환경 (이 머신)
+## 환경 (이 머신) & 빌드 메모
 - Windows 11, PowerShell. 작업 디렉토리: `D:\codeworks\house`.
-- Node.js v24, npm 11, Git 2.52 설치됨. WebView2 설치됨.
-- **Rust 미설치, MSVC C++ 빌드툴 미설치** → 단계 1에서 설치 필요.
+- 설치됨: Node v24, npm 11, Git 2.52, WebView2, **Rust 1.96 (rustup)**, **MSVC C++ 빌드툴(VS BuildTools 2022, VC 14.44) + Windows SDK 10.0.26100**.
+- **cargo가 시스템 PATH에 없다.** 빌드/실행 전 항상 PATH에 추가:
+  `$env:Path = "$env:USERPROFILE\.cargo\bin;$env:Path"`
+- **개발 실행:** `npm run tauri dev` (위 PATH 설정 후).
+- **릴리즈 빌드:** `npm run tauri build` → 첫 컴파일은 7~10분. 산출물:
+  - exe: `src-tauri/target/release/living-room.exe`
+  - 설치 파일: `src-tauri/target/release/bundle/nsis/리빙룸_<ver>_x64-setup.exe`
+- **Windows 번들은 NSIS만 사용** (`tauri.conf.json` → `bundle.targets: ["nsis"]`).
+  WiX MSI는 한글 제품명("리빙룸")에서 `light.exe`가 크래시함 → 쓰지 말 것. NSIS는 유니코드 안전 + Tauri updater 친화.
+- **git:** D 드라이브가 소유권 미기록이라 `safe.directory` 예외가 필요했음(전역 설정 완료). 원격: `origin` = github.com/gimttos/living-room (private), 기본 브랜치 `main`.
+- 무거운 첫 병렬 릴리즈 빌드가 VS 설치 직후 한 번 일시적으로 크래시(ACCESS_VIOLATION)한 적 있음 → 재시도하면 됨. 필요시 `$env:CARGO_BUILD_JOBS="4"`로 병렬도 낮춤.
+
+## 단계 진행 현황
+- ✅ **단계 1 완료** (커밋 `aeb8127`): 환경 세팅, Tauri v2 빈 창, NSIS 설치 파일, 바탕화면 바로가기, GitHub 비공개 레포.
+- ▶ 다음: **단계 2** — Konva 기본(이미지 1장 드래그·리사이즈·회전).
