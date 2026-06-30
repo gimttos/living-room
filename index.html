@@ -33,6 +33,7 @@
           <div id="sidebar-grip" class="sidebar-grip" title="드래그해서 이동">⠿ 도구막대</div>
           <nav id="room-tabs" class="room-tabs" aria-label="방 이동"></nav>
           <button id="btn-add" class="btn btn--primary">＋ 이미지</button>
+          <button id="btn-add-text" class="btn">＋ 문장</button>
           <div class="sidebar__group">
             <button id="btn-edit" class="btn" data-needs-selection disabled>편집</button>
             <button id="btn-front" class="btn" data-needs-selection disabled>앞으로</button>
@@ -99,7 +100,79 @@
               <button id="crop-cancel" class="btn">취소</button>
             </div>
           </section>
+
+          <!-- 문장 카드 스타일러 (G2) -->
+          <section id="text-panel" class="edit-panel text-panel" hidden>
+            <header class="edit-panel__head">
+              <strong>문장 꾸미기</strong>
+              <button id="text-close" class="iconbtn" title="닫기">✕</button>
+            </header>
+            <textarea
+              id="t-text"
+              class="t-text"
+              rows="4"
+              placeholder="문장이나 RP 글을 입력하세요"
+            ></textarea>
+            <div class="t-row">
+              <label class="t-field">폰트
+                <select id="t-font"></select>
+              </label>
+            </div>
+            <label class="slider">
+              <span>크기</span>
+              <input type="range" id="t-size" min="12" max="48" step="1" value="22" />
+            </label>
+            <div class="t-row">
+              <label class="t-field">색
+                <input type="color" id="t-color" value="#3a3128" />
+              </label>
+              <label class="t-field">정렬
+                <select id="t-align">
+                  <option value="left">왼쪽</option>
+                  <option value="center">가운데</option>
+                  <option value="right">오른쪽</option>
+                </select>
+              </label>
+            </div>
+            <div class="t-row">
+              <label class="t-field">배경지
+                <select id="t-bg">
+                  <option value="none">없음</option>
+                  <option value="paper">한지</option>
+                  <option value="card">카드</option>
+                  <option value="neon">네온</option>
+                </select>
+              </label>
+              <label class="t-field">프레임
+                <select id="t-frame">
+                  <option value="none">없음</option>
+                  <option value="line">선</option>
+                  <option value="dashed">점선</option>
+                </select>
+              </label>
+            </div>
+          </section>
         </main>
+      </div>
+    </div>
+
+    <!-- 책 읽기/편집 모달 (서재) -->
+    <div id="book-reader" class="book-reader" hidden>
+      <div class="book-reader__backdrop" id="reader-backdrop"></div>
+      <div class="book-reader__card">
+        <header class="book-reader__head">
+          <input id="r-title" class="r-title" placeholder="제목" />
+          <button id="reader-close" class="iconbtn" title="닫기 (Esc)">✕</button>
+        </header>
+        <textarea
+          id="r-text"
+          class="r-text"
+          placeholder="여기에 RP 글이나 문장을 적어요"
+        ></textarea>
+        <footer class="book-reader__foot">
+          <div class="r-colors" id="r-colors" aria-label="책등 색"></div>
+          <button id="reader-delete" class="btn btn--danger">삭제</button>
+        </footer>
       </div>
     </div>
 

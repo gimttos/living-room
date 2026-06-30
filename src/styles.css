@@ -366,6 +366,169 @@ body.overlay-mode.edit-mode .sidebar-grip {
   color: var(--ink-soft);
 }
 
+/* ---------- 문장 카드 스타일러 ---------- */
+.text-panel {
+  width: 264px;
+}
+.t-text {
+  width: 100%;
+  resize: vertical;
+  font: inherit;
+  font-size: 0.86rem;
+  padding: 8px 10px;
+  border-radius: 8px;
+  border: 1px solid var(--panel-border);
+  background: #fff;
+  color: var(--ink);
+  margin-bottom: 10px;
+}
+.t-row {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+.t-field {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+  font-size: 0.78rem;
+  color: var(--ink-soft);
+}
+.t-field select {
+  font: inherit;
+  font-size: 0.8rem;
+  padding: 4px 6px;
+  border-radius: 7px;
+  border: 1px solid var(--panel-border);
+  background: #fff;
+  color: var(--ink);
+  max-width: 110px;
+}
+.t-field input[type="color"] {
+  width: 34px;
+  height: 26px;
+  padding: 0;
+  border: 1px solid var(--panel-border);
+  border-radius: 6px;
+  background: #fff;
+  cursor: pointer;
+}
+
+@media (prefers-color-scheme: dark) {
+  .t-text,
+  .t-field select {
+    background: #2c281f;
+    color: var(--ink);
+  }
+}
+
+/* ---------- 책 읽기 모달 (서재) ---------- */
+.book-reader {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.book-reader[hidden] {
+  display: none;
+}
+.book-reader__backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(30, 22, 14, 0.42);
+  backdrop-filter: blur(2px);
+}
+.book-reader__card {
+  position: relative;
+  width: min(560px, 86vw);
+  max-height: 82vh;
+  display: flex;
+  flex-direction: column;
+  background: var(--panel);
+  border: 1px solid var(--panel-border);
+  border-radius: 16px;
+  box-shadow: 0 24px 64px rgba(40, 28, 16, 0.4);
+  padding: 18px 20px 16px;
+  animation: book-pop 0.16s ease-out;
+}
+@keyframes book-pop {
+  from {
+    transform: translateY(10px) scale(0.98);
+    opacity: 0;
+  }
+  to {
+    transform: none;
+    opacity: 1;
+  }
+}
+.book-reader__head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+.r-title {
+  flex: 1;
+  font: inherit;
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: var(--ink);
+  background: transparent;
+  border: none;
+  border-bottom: 1.5px solid var(--panel-border);
+  padding: 4px 2px;
+}
+.r-title:focus {
+  outline: none;
+  border-bottom-color: var(--accent);
+}
+.r-text {
+  flex: 1;
+  min-height: 240px;
+  resize: none;
+  font: inherit;
+  font-size: 0.98rem;
+  line-height: 1.6;
+  color: var(--ink);
+  background: #fff;
+  border: 1px solid var(--panel-border);
+  border-radius: 10px;
+  padding: 14px 16px;
+}
+.book-reader__foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-top: 12px;
+}
+.r-colors {
+  display: flex;
+  gap: 6px;
+}
+.r-swatch {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  border: 2px solid transparent;
+  cursor: pointer;
+  padding: 0;
+}
+.r-swatch[aria-pressed="true"] {
+  border-color: var(--ink);
+  box-shadow: 0 0 0 2px var(--panel);
+}
+
+@media (prefers-color-scheme: dark) {
+  .r-text {
+    background: #2c281f;
+  }
+}
+
 /* ---------- 오버레이 모드 ---------- */
 /* 전시: 투명 배경 + 크롬 숨김, 이미지만 떠 있음 (클릭통과는 창 레벨에서) */
 body.overlay-mode {

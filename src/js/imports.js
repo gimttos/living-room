@@ -32,6 +32,7 @@ export function initImports({ fileInput, dropTarget, addButton, onAdded }) {
   });
 
   async function processFiles(files, dropPoint) {
+    if (room.data.kind === "study") return; // 서재는 책만 (이미지 안 받음)
     const images = files.filter(isAcceptedImage);
     if (images.length === 0) return;
     let i = 0;

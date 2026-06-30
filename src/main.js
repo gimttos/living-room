@@ -1,12 +1,29 @@
 // 리빙룸 v1 — 거실. 부트스트랩 + UI 배선.
 import { room } from "./js/room.js";
 import { ensureDirs, deleteImageFile } from "./js/storage.js";
-import { DEFAULT_THEME, ROOMS, DEFAULT_ROOM } from "./js/config.js";
+import {
+  DEFAULT_THEME,
+  ROOMS,
+  DEFAULT_ROOM,
+  TEXT_FONTS,
+  DEFAULT_TEXT_STYLE,
+  TEXT_DEFAULT_SIZE,
+  BOOK,
+  DEFAULT_BOOK_COLOR,
+} from "./js/config.js";
 import {
   initCanvas,
   buildFromRoom,
   rebuild,
   setTheme,
+  addTextObject,
+  setSelectedText,
+  setSelectedTextStyle,
+  getStageSize,
+  addBook,
+  updateBook,
+  deleteBookById,
+  getBookData,
   deleteSelected,
   bringForward,
   sendBackward,
@@ -63,6 +80,24 @@ const el = {
   sidebarGrip: $("sidebar-grip"),
   roomTabs: $("room-tabs"),
   roomTitle: document.querySelector(".topbar__title"),
+  btnAddText: $("btn-add-text"),
+  textPanel: $("text-panel"),
+  textClose: $("text-close"),
+  tText: $("t-text"),
+  tFont: $("t-font"),
+  tSize: $("t-size"),
+  tColor: $("t-color"),
+  tAlign: $("t-align"),
+  tBg: $("t-bg"),
+  tFrame: $("t-frame"),
+  objTools: document.querySelector(".sidebar__group"),
+  bookReader: $("book-reader"),
+  readerBackdrop: $("reader-backdrop"),
+  readerClose: $("reader-close"),
+  readerDelete: $("reader-delete"),
+  rTitle: $("r-title"),
+  rText: $("r-text"),
+  rColors: $("r-colors"),
 };
 
 const STATUS_TEXT = {
@@ -94,6 +129,7 @@ async function boot() {
   initCanvas({
     container: el.stage,
     onSelectionChange: onSelection,
+    onBookOpen: openBookReader,
   });
 
   await buildFromRoom();
@@ -108,6 +144,8 @@ async function boot() {
 
   wireToolbar();
   wireEditPanel();
+  wireText();
+  wireBookReader();
   wireGlobalKeys();
   wireSystem();
   wireOverlay();
@@ -166,13 +204,21 @@ function buildRoomTabs() {
   }
 }
 
-// 방 이름/탭 활성 표시 등 방 의존 크롬 갱신
+// 방 이름/탭 활성 표시 + 방별 도구 노출 (거실=이미지, 서재=책만)
 function setRoomChrome(id) {
   if (el.roomTitle) el.roomTitle.textContent = room.data.name || id;
   el.roomTabs.querySelectorAll(".room-tab").forEach((b) => {
     b.setAttribute("aria-current", String(b.dataset.room === id));
   });
   el.themeSelect.value = room.data.background?.value || DEFAULT_THEME;
+
+  const isStudy = room.data.kind === "study";
+  el.btnAdd.style.display = isStudy ? "none" : ""; // ＋이미지: 거실만
+  el.btnAddText.style.display = isStudy ? "" : "none"; // ＋문장(책): 서재만
+  el.objTools.style.display = isStudy ? "none" : ""; // 편집/앞뒤/잠금/삭제: 자유 캔버스용
+  el.emptyHint.textContent = isStudy
+    ? "＋ 문장으로 책을 만들어 책장에 꽂아보세요"
+    : "이미지를 끌어다 놓아 거실을 꾸며보세요";
 }
 
 let switching = false;
@@ -181,6 +227,8 @@ async function switchRoom(id) {
   switching = true;
   try {
     closeEditPanel();
+    closeTextPanel();
+    closeBookReader();
     await room.save(); // 현재 방 저장
     await room.load(id); // 새 방 로드
     await rebuild(); // 캔버스 재구성
@@ -264,10 +312,18 @@ function onSelection(info) {
   } else {
     el.btnLock.textContent = "잠금";
     closeEditPanel();
+    closeTextPanel();
   }
 
-  // 편집 패널이 열려 있으면 슬라이더를 새 선택값으로 갱신
-  if (has && !el.editPanel.hidden) syncSliders(info.filters);
+  // 열린 패널을 선택 타입에 맞춰 동기화하거나 닫기
+  if (has && !el.editPanel.hidden) {
+    if (info.type === "image") syncSliders(info.filters);
+    else closeEditPanel();
+  }
+  if (has && !el.textPanel.hidden) {
+    if (info.type === "text") syncTextPanel(info);
+    else closeTextPanel();
+  }
 }
 
 function refreshEmptyHint() {
@@ -297,6 +353,11 @@ async function doDelete() {
 function wireEditPanel() {
   el.btnEdit.addEventListener("click", () => {
     if (!current) return;
+    if (current.type === "text") {
+      openTextPanel();
+      return;
+    }
+    el.textPanel.hidden = true;
     el.editPanel.hidden = false;
     syncSliders(current.filters);
     exitCropUI();
@@ -333,6 +394,149 @@ function wireEditPanel() {
     cancelCrop();
     exitCropUI();
   });
+}
+
+// ---------- 문장 카드 (text) ----------
+function wireText() {
+  // 폰트 옵션 채우기
+  for (const f of TEXT_FONTS) {
+    const o = document.createElement("option");
+    o.value = f.value;
+    o.textContent = f.label;
+    el.tFont.appendChild(o);
+  }
+
+  el.btnAddText.addEventListener("click", addNewTextCard);
+  el.textClose.addEventListener("click", closeTextPanel);
+
+  el.tText.addEventListener("input", () => setSelectedText(el.tText.value));
+  el.tFont.addEventListener("change", () => setSelectedTextStyle("font", el.tFont.value));
+  el.tSize.addEventListener("input", () =>
+    setSelectedTextStyle("fontSize", parseInt(el.tSize.value, 10))
+  );
+  el.tColor.addEventListener("input", () => setSelectedTextStyle("color", el.tColor.value));
+  el.tAlign.addEventListener("change", () => setSelectedTextStyle("align", el.tAlign.value));
+  el.tBg.addEventListener("change", () => setSelectedTextStyle("bg", el.tBg.value));
+  el.tFrame.addEventListener("change", () => setSelectedTextStyle("frame", el.tFrame.value));
+}
+
+async function addNewTextCard() {
+  // 서재: 책으로 만들어 책장에 꽂고 바로 읽기 패널 오픈
+  if (room.data.kind === "study") {
+    const obj = {
+      id: crypto.randomUUID(),
+      type: "text",
+      title: "",
+      text: "",
+      zIndex: room.nextZIndex(),
+      style: { color: DEFAULT_BOOK_COLOR },
+    };
+    addBook(obj);
+    refreshEmptyHint();
+    openBookReader(obj.id);
+    el.rText.focus();
+    return;
+  }
+  // 그 외(레거시 freeform): 자유 문장 카드
+  const { width: sw, height: sh } = getStageSize();
+  const { width: w, height: h } = TEXT_DEFAULT_SIZE;
+  const n = room.data.objects.length;
+  const obj = {
+    id: crypto.randomUUID(),
+    type: "text",
+    text: "",
+    x: Math.round(sw / 2 - w / 2 + ((n * 24) % 160) - 80),
+    y: Math.round(sh / 2 - h / 2 + ((n * 24) % 120) - 60),
+    width: w,
+    height: h,
+    rotation: 0,
+    zIndex: room.nextZIndex(),
+    style: { ...DEFAULT_TEXT_STYLE },
+    locked: false,
+  };
+  await addTextObject(obj, { select: true });
+  refreshEmptyHint();
+  openTextPanel();
+  el.tText.focus();
+}
+
+// ---------- 책 읽기 모달 (서재) ----------
+let readerBookId = null;
+function wireBookReader() {
+  // 색 스와치
+  for (const c of BOOK.colors) {
+    const b = document.createElement("button");
+    b.className = "r-swatch";
+    b.style.background = c;
+    b.dataset.color = c;
+    b.setAttribute("aria-pressed", "false");
+    b.addEventListener("click", () => {
+      if (!readerBookId) return;
+      updateBook(readerBookId, { color: c });
+      markActiveSwatch(c);
+    });
+    el.rColors.appendChild(b);
+  }
+
+  el.rTitle.addEventListener("input", () => {
+    if (readerBookId) updateBook(readerBookId, { title: el.rTitle.value });
+  });
+  el.rText.addEventListener("input", () => {
+    if (readerBookId) updateBook(readerBookId, { text: el.rText.value });
+  });
+  el.readerClose.addEventListener("click", closeBookReader);
+  el.readerBackdrop.addEventListener("click", closeBookReader);
+  el.bookReader.addEventListener("keydown", (e) => {
+    if (e.key === "Escape") {
+      e.stopPropagation();
+      closeBookReader();
+    }
+  });
+  el.readerDelete.addEventListener("click", () => {
+    if (!readerBookId) return;
+    deleteBookById(readerBookId);
+    closeBookReader();
+    refreshEmptyHint();
+  });
+}
+
+function openBookReader(id) {
+  const data = getBookData(id);
+  if (!data) return;
+  readerBookId = id;
+  el.rTitle.value = data.title;
+  el.rText.value = data.text;
+  markActiveSwatch(data.color);
+  el.bookReader.hidden = false;
+}
+function closeBookReader() {
+  el.bookReader.hidden = true;
+  readerBookId = null;
+}
+function markActiveSwatch(color) {
+  el.rColors.querySelectorAll(".r-swatch").forEach((s) => {
+    s.setAttribute("aria-pressed", String(s.dataset.color === color));
+  });
+}
+
+function openTextPanel() {
+  if (!current || current.type !== "text") return;
+  el.editPanel.hidden = true;
+  el.textPanel.hidden = false;
+  syncTextPanel(current);
+}
+function closeTextPanel() {
+  el.textPanel.hidden = true;
+}
+function syncTextPanel(info) {
+  const s = info.style || DEFAULT_TEXT_STYLE;
+  el.tText.value = info.text || "";
+  el.tFont.value = s.font;
+  el.tSize.value = s.fontSize;
+  el.tColor.value = s.color;
+  el.tAlign.value = s.align;
+  el.tBg.value = s.bg;
+  el.tFrame.value = s.frame;
 }
 
 function syncSliders(f) {

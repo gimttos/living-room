@@ -2,12 +2,22 @@
 // 방의 모든 "방"이 공유하는 엔진. v1은 image 오브젝트만 다룬다.
 import Konva from "konva";
 import { room } from "./room.js";
-import { THEMES, DEFAULT_THEME } from "./config.js";
+import {
+  THEMES,
+  DEFAULT_THEME,
+  TEXT_BG,
+  TEXT_FRAME,
+  DEFAULT_TEXT_STYLE,
+  TEXT_PAD,
+  BOOK,
+  DEFAULT_BOOK_COLOR,
+} from "./config.js";
 import { readImageObjectURL } from "./storage.js";
 import { loadImageEl } from "./imageProcessing.js";
 
 let stage, bgLayer, objLayer, uiLayer, transformer;
 let onSelectionChange = () => {};
+let onBookOpen = () => {}; // 서재 책등 클릭 → 읽기
 let bgVisible = true; // 오버레이 전시에선 false (순수 떠다니는 이미지)
 
 const nodeById = new Map(); // id -> Konva.Image
@@ -16,8 +26,9 @@ const urlById = new Map(); // id -> objectURL (해제용)
 let cropState = null; // 크롭 모드 상태
 
 // ---------- 초기화 ----------
-export function initCanvas({ container, onSelectionChange: cb }) {
+export function initCanvas({ container, onSelectionChange: cb, onBookOpen: bookCb }) {
   onSelectionChange = cb || (() => {});
+  onBookOpen = bookCb || (() => {});
 
   stage = new Konva.Stage({
     container,
@@ -60,6 +71,7 @@ function resize() {
   stage.width(c.clientWidth);
   stage.height(c.clientHeight);
   renderBackground();
+  if (room.data.kind === "study") arrangeBooks();
 }
 
 // ---------- 배경 / 테마 ----------
@@ -120,23 +132,29 @@ function renderFreeformBg(w, h, t) {
   );
 }
 
-// 서재: 책장 선반 여러 줄 + 책상. "구경하는 서재" 분위기 (가벼운 Rect만).
-function renderStudyBg(w, h, t) {
-  const deskY = Math.round(h * 0.82); // 책상 윗면
-  addWall(w, deskY, t);
-
-  // 책장 선반 4줄 (상단~책상 위). 각 줄 = 옅은 그림자 + 선반판.
+// 서재 기하: 선반판 y들 + 칸 높이. 배경과 책 배치가 공유한다.
+function studyGeometry(w, h) {
+  const deskY = Math.round(h * 0.82);
   const top = Math.round(h * 0.1);
   const rows = 4;
   const gap = (deskY - top) / rows;
   const margin = Math.round(Math.min(64, w * 0.05));
-  for (let i = 0; i < rows; i++) {
-    const y = Math.round(top + gap * (i + 1)) - 14;
+  const boards = []; // 각 선반판 윗면 y (책이 이 위에 섬)
+  for (let i = 0; i < rows; i++) boards.push(Math.round(top + gap * (i + 1)) - 14);
+  return { deskY, top, rows, gap, margin, boards };
+}
+
+// 서재: 책장 선반 여러 줄 + 책상. "구경하는 서재" 분위기 (가벼운 Rect만).
+function renderStudyBg(w, h, t) {
+  const g = studyGeometry(w, h);
+  addWall(w, g.deskY, t);
+
+  for (const y of g.boards) {
     bgLayer.add(
       new Konva.Rect({
-        x: margin,
+        x: g.margin,
         y: y + 11,
-        width: w - margin * 2,
+        width: w - g.margin * 2,
         height: 14,
         fill: t.shelfShadow,
         cornerRadius: 3,
@@ -144,9 +162,9 @@ function renderStudyBg(w, h, t) {
     );
     bgLayer.add(
       new Konva.Rect({
-        x: margin,
+        x: g.margin,
         y,
-        width: w - margin * 2,
+        width: w - g.margin * 2,
         height: 11,
         fill: t.shelf,
         cornerRadius: 3,
@@ -156,11 +174,10 @@ function renderStudyBg(w, h, t) {
 
   // 책상 (바닥 대신 따뜻한 나무 면)
   bgLayer.add(
-    new Konva.Rect({ x: 0, y: deskY, width: w, height: h - deskY, fill: t.floor })
+    new Konva.Rect({ x: 0, y: g.deskY, width: w, height: h - g.deskY, fill: t.floor })
   );
-  // 책상 앞 모서리 그림자 한 줄
   bgLayer.add(
-    new Konva.Rect({ x: 0, y: deskY, width: w, height: 6, fill: t.shelfShadow })
+    new Konva.Rect({ x: 0, y: g.deskY, width: w, height: 6, fill: t.shelfShadow })
   );
 }
 
@@ -190,7 +207,9 @@ export async function buildFromRoom() {
   );
   for (const obj of objs) {
     if (obj.type === "image") await mountImageNode(obj);
+    else if (obj.type === "text") mountTextNode(obj);
   }
+  if (room.data.kind === "study") arrangeBooks();
   objLayer.batchDraw();
 }
 
@@ -264,6 +283,305 @@ export async function addImageObject(obj, { select = true } = {}) {
   return node;
 }
 
+// ---------- 문장 오브젝트 (text) ----------
+// 서재(kind:study)에선 책등으로, 그 외(거실 등)에선 자유 카드로 렌더.
+function mountTextNode(obj) {
+  if (room.data.kind === "study") return mountBookSpine(obj);
+  return mountTextCard(obj);
+}
+
+// 거실 등: 자유 배치 문장 카드 (레거시)
+function mountTextCard(obj) {
+  if (!obj.style) obj.style = { ...DEFAULT_TEXT_STYLE };
+  const group = new Konva.Group({
+    id: obj.id,
+    x: obj.x,
+    y: obj.y,
+    rotation: obj.rotation || 0,
+    draggable: !obj.locked,
+    name: "room-object",
+  });
+  group.add(
+    new Konva.Rect({ name: "text-bg" }),
+    new Konva.Rect({ name: "text-frame", listening: false }),
+    new Konva.Text({ name: "text-body", listening: false, wrap: "word" })
+  );
+  layoutTextNode(group, obj);
+  wireTextNode(group, obj);
+  objLayer.add(group);
+  nodeById.set(obj.id, group);
+  return group;
+}
+
+// obj 값(크기·스타일·텍스트)을 그룹 자식들에 반영
+function layoutTextNode(group, obj) {
+  const w = obj.width;
+  const h = obj.height;
+  const s = obj.style || DEFAULT_TEXT_STYLE;
+  group.size({ width: w, height: h });
+
+  const bgS = TEXT_BG[s.bg] || TEXT_BG.none;
+  group.findOne(".text-bg").setAttrs({
+    x: 0,
+    y: 0,
+    width: w,
+    height: h,
+    cornerRadius: bgS.radius,
+    fill: bgS.fill || "rgba(0,0,0,0.001)", // 투명이어도 클릭 잡히게 거의-투명
+    stroke: bgS.stroke,
+    strokeWidth: bgS.strokeWidth,
+    shadowColor: bgS.shadow ? "rgba(70,50,30,0.25)" : undefined,
+    shadowBlur: bgS.shadow ? 12 : 0,
+    shadowOffsetY: bgS.shadow ? 4 : 0,
+    shadowOpacity: bgS.shadow ? 1 : 0,
+  });
+
+  const frS = TEXT_FRAME[s.frame] || TEXT_FRAME.none;
+  group.findOne(".text-frame").setAttrs({
+    x: frS.inset,
+    y: frS.inset,
+    width: Math.max(0, w - frS.inset * 2),
+    height: Math.max(0, h - frS.inset * 2),
+    cornerRadius: Math.max(0, (bgS.radius || 0) - frS.inset),
+    stroke: frS.stroke,
+    strokeWidth: frS.strokeWidth,
+    dash: frS.dash || undefined,
+    visible: frS.strokeWidth > 0,
+  });
+
+  group.findOne(".text-body").setAttrs({
+    x: TEXT_PAD,
+    y: TEXT_PAD,
+    width: Math.max(8, w - TEXT_PAD * 2),
+    text: obj.text || "",
+    fontSize: s.fontSize,
+    fontFamily: s.font,
+    fill: s.color,
+    align: s.align,
+    lineHeight: 1.4,
+  });
+  group.getLayer()?.batchDraw();
+}
+
+function wireTextNode(group, obj) {
+  group.on("click tap", (e) => {
+    if (cropState) return;
+    e.cancelBubble = true;
+    selectById(obj.id);
+  });
+  group.on("dragend", () => {
+    obj.x = group.x();
+    obj.y = group.y();
+    room.touch();
+  });
+  group.on("transformend", () => {
+    // 스케일을 width/height로 흡수 후 재배치 (텍스트 재줄바꿈)
+    const newW = Math.max(60, obj.width * group.scaleX());
+    const newH = Math.max(40, obj.height * group.scaleY());
+    group.scale({ x: 1, y: 1 });
+    obj.width = newW;
+    obj.height = newH;
+    obj.x = group.x();
+    obj.y = group.y();
+    obj.rotation = group.rotation();
+    layoutTextNode(group, obj);
+    room.touch();
+  });
+}
+
+// 새 문장 카드 추가
+export async function addTextObject(obj, { select = true } = {}) {
+  if (!obj.style) obj.style = { ...DEFAULT_TEXT_STYLE };
+  room.addObject(obj);
+  const node = mountTextNode(obj);
+  objLayer.batchDraw();
+  if (select) selectById(obj.id);
+  return node;
+}
+
+// 스타일러 패널 → 선택된 문장 카드에 즉시 반영
+export function setSelectedText(text) {
+  if (!selectedId) return;
+  const obj = room.getObject(selectedId);
+  const node = nodeById.get(selectedId);
+  if (!obj || obj.type !== "text" || !node) return;
+  obj.text = text;
+  layoutTextNode(node, obj);
+  room.touch();
+}
+
+export function setSelectedTextStyle(key, value) {
+  if (!selectedId) return;
+  const obj = room.getObject(selectedId);
+  const node = nodeById.get(selectedId);
+  if (!obj || obj.type !== "text" || !node) return;
+  if (!obj.style) obj.style = { ...DEFAULT_TEXT_STYLE };
+  obj.style[key] = value;
+  layoutTextNode(node, obj);
+  selectById(selectedId); // 트랜스포머 박스 갱신
+  room.touch();
+}
+
+// ---------- 서재 책장(책등) ----------
+function firstLine(t) {
+  return (t || "").split("\n")[0].trim().slice(0, 24);
+}
+function spineTextColor(hex) {
+  // 밝기 추정 → 밝은 책등엔 어두운 글자, 어두운 책등엔 흰 글자
+  const m = /^#?([0-9a-f]{6})$/i.exec(hex || "");
+  if (!m) return "#fff";
+  const n = parseInt(m[1], 16);
+  const r = (n >> 16) & 255,
+    g = (n >> 8) & 255,
+    b = n & 255;
+  const lum = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
+  return lum > 0.6 ? "#3a2f25" : "rgba(255,255,255,0.92)";
+}
+
+function mountBookSpine(obj) {
+  const group = new Konva.Group({ id: obj.id, name: "book-spine" });
+  group.add(
+    new Konva.Rect({ name: "spine-body" }),
+    new Konva.Rect({ name: "spine-band-top", listening: false }),
+    new Konva.Rect({ name: "spine-band-bottom", listening: false }),
+    new Konva.Text({ name: "spine-title", rotation: 90, listening: false })
+  );
+  group.on("mouseenter", () => {
+    stage.container().style.cursor = "pointer";
+    group.y(group.getAttr("baseY") - 7);
+    objLayer.batchDraw();
+  });
+  group.on("mouseleave", () => {
+    stage.container().style.cursor = "default";
+    group.y(group.getAttr("baseY") ?? group.y());
+    objLayer.batchDraw();
+  });
+  group.on("click tap", (e) => {
+    e.cancelBubble = true;
+    onBookOpen(obj.id);
+  });
+  objLayer.add(group);
+  nodeById.set(obj.id, group);
+  return group;
+}
+
+function layoutBookSpine(node, obj, wB, hB) {
+  const color = obj.style?.color || DEFAULT_BOOK_COLOR;
+  node.findOne(".spine-body").setAttrs({
+    x: 0,
+    y: 0,
+    width: wB,
+    height: hB,
+    fill: color,
+    cornerRadius: [4, 4, 2, 2],
+    shadowColor: "rgba(40,25,10,0.4)",
+    shadowBlur: 6,
+    shadowOffsetX: 2,
+    shadowOpacity: 0.55,
+  });
+  node.findOne(".spine-band-top").setAttrs({
+    x: 0,
+    y: Math.round(hB * 0.11),
+    width: wB,
+    height: 3,
+    fill: "rgba(255,255,255,0.22)",
+  });
+  node.findOne(".spine-band-bottom").setAttrs({
+    x: 0,
+    y: Math.round(hB * 0.85),
+    width: wB,
+    height: 3,
+    fill: "rgba(0,0,0,0.2)",
+  });
+  const title = (obj.title && obj.title.trim()) || firstLine(obj.text) || "제목 없음";
+  node.findOne(".spine-title").setAttrs({
+    x: Math.round(wB * 0.72),
+    y: 9,
+    width: Math.max(10, hB - 18),
+    text: title,
+    fontSize: Math.max(10, Math.min(14, Math.round(wB * 0.4))),
+    fontFamily: '"Malgun Gothic","맑은 고딕",sans-serif',
+    fill: spineTextColor(color),
+    ellipsis: true,
+    wrap: "none",
+  });
+}
+
+// 모든 책을 선반에 좌→우, 넘치면 다음 선반으로 자동 정렬.
+function arrangeBooks() {
+  const w = stage.width();
+  const h = stage.height();
+  const g = studyGeometry(w, h);
+  const books = room.data.objects
+    .filter((o) => o.type === "text")
+    .sort((a, b) => (a.zIndex ?? 0) - (b.zIndex ?? 0));
+  const spineW = BOOK.spineW;
+  const bookH = Math.round(g.gap * BOOK.heightRatio);
+  const usableRight = w - g.margin;
+  let row = 0;
+  let x = g.margin;
+  for (const obj of books) {
+    const node = nodeById.get(obj.id);
+    if (!node) continue;
+    if (x + spineW > usableRight && x > g.margin) {
+      row++;
+      x = g.margin;
+    }
+    if (row >= g.rows) {
+      node.visible(false); // 선반 초과분은 숨김 (후속: 페이지)
+      continue;
+    }
+    node.visible(true);
+    const y = g.boards[row] - bookH;
+    layoutBookSpine(node, obj, spineW, bookH);
+    node.position({ x, y });
+    node.setAttr("baseY", y);
+    x += spineW + BOOK.gap;
+  }
+  objLayer.batchDraw();
+}
+
+// 새 책 추가 (서재)
+export function addBook(obj) {
+  if (!obj.style) obj.style = { color: DEFAULT_BOOK_COLOR };
+  room.addObject(obj);
+  mountBookSpine(obj);
+  arrangeBooks();
+}
+
+// 읽기 패널 → 책 내용/색 갱신
+export function updateBook(id, patch) {
+  const obj = room.getObject(id);
+  if (!obj) return;
+  if (patch.title !== undefined) obj.title = patch.title;
+  if (patch.text !== undefined) obj.text = patch.text;
+  if (patch.color !== undefined) {
+    obj.style = obj.style || {};
+    obj.style.color = patch.color;
+  }
+  arrangeBooks();
+  room.touch();
+}
+
+export function deleteBookById(id) {
+  const node = nodeById.get(id);
+  if (node) node.destroy();
+  nodeById.delete(id);
+  room.removeObject(id);
+  arrangeBooks();
+}
+
+export function getBookData(id) {
+  const obj = room.getObject(id);
+  if (!obj) return null;
+  return {
+    id: obj.id,
+    title: obj.title || "",
+    text: obj.text || "",
+    color: obj.style?.color || DEFAULT_BOOK_COLOR,
+  };
+}
+
 // ---------- 선택 / 트랜스포머 ----------
 let selectedId = null;
 
@@ -284,7 +602,15 @@ export function getSelectedInfo() {
   if (!selectedId) return null;
   const obj = room.getObject(selectedId);
   if (!obj) return null;
-  return { id: obj.id, locked: !!obj.locked, filters: { ...obj.filters }, hasCrop: !!obj.crop };
+  return {
+    id: obj.id,
+    type: obj.type,
+    locked: !!obj.locked,
+    filters: { ...obj.filters },
+    hasCrop: !!obj.crop,
+    style: obj.style ? { ...obj.style } : null,
+    text: obj.text ?? "",
+  };
 }
 
 // ---------- 편집 동작 ----------
