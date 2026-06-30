@@ -101,7 +101,16 @@
   - 창 제어용 `core:window:allow-*`(set-decorations/ignore-cursor-events/size/position/skip-taskbar/maximize/unmaximize/minimize/start-dragging/current-monitor 등) 권한 필요.
   - **dev console 디버깅:** Vite가 webview `console.warn`/`error`만 dev 로그로 포워딩(.log는 안 됨).
 
-## 단계 진행 현황 — v1 거실 **완료** ✅
+## 단계 진행 현황 — v1 거실 **완료** ✅ · v2 서재 **완료** ✅
 - ✅ 단계 1 환경/빈 창 · 2~3 이미지 배치 · 4 저장/복원 · 5 편집(크롭+색조) · 6 배경 테마 · 7 배포+트레이+자동업데이트. + 바탕화면 오버레이 모드.
-- 현재 버전 **0.1.3** 릴리즈됨. 설치본 배포 + 자동 업데이트 동작. (0.1.2 = 오버레이 모드, 0.1.3 = 풀블리드 캔버스 + 사이드바 접기 + 도구막대 드래그.)
-- **다음(스펙대로 v1 이후):** 진열장(v2)·공방(v3) 등 새 방. 엔진(오브젝트+캔버스)은 재사용하고 "새 오브젝트 타입/새 방"만 더하는 식. 관련 [[transparent-overlay-idea]].
+- 현재 버전 **0.2.0** 릴리즈됨. 설치본 배포 + 자동 업데이트 동작. (0.1.2 오버레이, 0.1.3 풀블리드/사이드바접기/도구막대드래그, 0.2.0 멀티룸+서재+일기.)
+- **다음(스펙대로):** 공방(v3, goods 합성)·현관(v4, 도장 수집)·수납장(v4, 인박스). 엔진 재사용 + "새 오브젝트 타입/새 방"만 추가. 관련 [[transparent-overlay-idea]].
+
+## 멀티룸 + 서재 (v2, 0.2.0)
+스펙 3·8장의 "컴퓨터=집, 방을 추가하며 자란다". 엔진(`canvas.js` 오브젝트/`room.js` 저장)은 방 무관, **셸/오브젝트 타입만 확장**.
+- **방 레지스트리:** `config.js` `ROOMS=[{id,name,kind}]`, 방 상태 = `rooms/<id>.json`(`roomPath(id)`). 활성 방 `settings.json` `activeRoom`에 복원. `SCHEMA_VERSION=2`(v1 JSON 관용 로드 + 누락필드 보정 후 승격).
+- **네비:** 사이드바 방 탭(`#room-tabs`) → `switchRoom()`(현재 저장→로드→`canvas.rebuild()`). `setRoomChrome()`가 방 kind별 도구 노출 토글.
+- **기능 분리:** 거실(kind freeform)=＋이미지+자유캔버스, 서재(kind study)=＋문장(책)만. 서재는 이미지 드롭 차단(`imports.js`).
+- **서재 책장:** text 오브젝트를 책등(spine)으로, `studyGeometry`의 선반에 좌→우 자동정렬(폭은 id로 변주). 책등 클릭→가운데 읽기 모달(제목/본문/책등색). 거실의 text는 레거시 자유 카드(`mountTextCard`).
+- **일기장:** 서재에 항상 꽂힌 고정 책(`diaryNode`, 리본). `diary.js`=`diary.json` 날짜별 항목. 날짜 네비+기분도장(수집형). **트래커 금지 철학 사수: 연속일·알림·미작성 표시 절대 금지.**
+- **꾸미기 보류:** 문장 카드 폰트/배경지/프레임 본격 스타일러는 폴리시로 미룸(현재 제목/본문/색까지). 아트 패스(일러 방)도 후속.

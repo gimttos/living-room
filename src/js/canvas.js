@@ -106,7 +106,27 @@ export function renderBackground() {
   if (room.data.kind === "study") renderStudyBg(w, h, t);
   else renderFreeformBg(w, h, t);
 
+  addVignette(w, h);
   bgLayer.batchDraw();
+}
+
+// 은은한 따뜻한 비네트 (가장자리만 살짝 어둡게) — 아늑함
+function addVignette(w, h) {
+  const r = Math.max(w, h) * 0.72;
+  bgLayer.add(
+    new Konva.Rect({
+      x: 0,
+      y: 0,
+      width: w,
+      height: h,
+      listening: false,
+      fillRadialGradientStartPoint: { x: w / 2, y: h / 2 },
+      fillRadialGradientStartRadius: r * 0.4,
+      fillRadialGradientEndPoint: { x: w / 2, y: h / 2 },
+      fillRadialGradientEndRadius: r,
+      fillRadialGradientColorStops: [0, "rgba(0,0,0,0)", 1, "rgba(34,20,8,0.16)"],
+    })
+  );
 }
 
 // 벽 그라데이션 헬퍼
@@ -438,6 +458,15 @@ export function setSelectedTextStyle(key, value) {
 function firstLine(t) {
   return (t || "").split("\n")[0].trim().slice(0, 24);
 }
+function hashStr(s) {
+  let h = 0;
+  for (let i = 0; i < (s || "").length; i++) h = (h * 31 + s.charCodeAt(i)) | 0;
+  return Math.abs(h);
+}
+// 책마다 폭을 살짝 다르게 → 자연스러운 책장 (id로 결정, 안정적)
+function spineWidthFor(obj) {
+  return BOOK.spineW - 6 + (hashStr(obj.id) % 5) * 3; // 32~50px
+}
 function spineTextColor(hex) {
   // 밝기 추정 → 밝은 책등엔 어두운 글자, 어두운 책등엔 흰 글자
   const m = /^#?([0-9a-f]{6})$/i.exec(hex || "");
@@ -524,23 +553,23 @@ function arrangeBooks() {
   const w = stage.width();
   const h = stage.height();
   const g = studyGeometry(w, h);
-  const spineW = BOOK.spineW;
   const bookH = Math.round(g.gap * BOOK.heightRatio);
   const usableRight = w - g.margin;
 
   const slots = [];
-  if (diaryNode) slots.push({ node: diaryNode, diary: true });
+  if (diaryNode) slots.push({ node: diaryNode, diary: true, wB: BOOK.spineW + 2 });
   for (const obj of room.data.objects
     .filter((o) => o.type === "text")
     .sort((a, b) => (a.zIndex ?? 0) - (b.zIndex ?? 0))) {
     const node = nodeById.get(obj.id);
-    if (node) slots.push({ node, obj });
+    if (node) slots.push({ node, obj, wB: spineWidthFor(obj) });
   }
 
   let row = 0;
   let x = g.margin;
   for (const slot of slots) {
-    if (x + spineW > usableRight && x > g.margin) {
+    const wB = slot.wB;
+    if (x + wB > usableRight && x > g.margin) {
       row++;
       x = g.margin;
     }
@@ -550,11 +579,11 @@ function arrangeBooks() {
     }
     slot.node.visible(true);
     const y = g.boards[row] - bookH;
-    if (slot.diary) layoutDiarySpine(slot.node, spineW, bookH);
-    else layoutBookSpine(slot.node, slot.obj, spineW, bookH);
+    if (slot.diary) layoutDiarySpine(slot.node, wB, bookH);
+    else layoutBookSpine(slot.node, slot.obj, wB, bookH);
     slot.node.position({ x, y });
     slot.node.setAttr("baseY", y);
-    x += spineW + BOOK.gap;
+    x += wB + BOOK.gap;
   }
   objLayer.batchDraw();
 }
