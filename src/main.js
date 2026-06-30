@@ -20,7 +20,7 @@ import {
 } from "./js/canvas.js";
 import { initImports } from "./js/imports.js";
 import { initAutostartToggle, checkForUpdates } from "./js/system.js";
-import { loadSettings } from "./js/settings.js";
+import { loadSettings, saveSettings } from "./js/settings.js";
 import { initOverlay, toggleOverlay, toggleEdit } from "./js/overlay.js";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 
@@ -57,6 +57,9 @@ const el = {
   btnExitOverlay: $("btn-exit-overlay"),
   btnMin: $("btn-min"),
   btnClose: $("btn-close"),
+  sidebar: $("sidebar"),
+  sidebarToggle: $("btn-sidebar-toggle"),
+  sidebarGrip: $("sidebar-grip"),
 };
 
 const STATUS_TEXT = {
@@ -71,6 +74,7 @@ let current = null; // 현재 선택 정보
 async function boot() {
   await ensureDirs();
   const settings = await loadSettings();
+  if (settings.sidebarCollapsed) document.body.classList.add("sidebar-collapsed");
   await room.load();
 
   room.onStatus((s) => {
@@ -101,6 +105,7 @@ async function boot() {
   wireGlobalKeys();
   wireSystem();
   wireOverlay();
+  wireSidebar();
 
   // 종료 전 마지막 저장 (best effort)
   window.addEventListener("beforeunload", () => room.save());
@@ -109,7 +114,23 @@ async function boot() {
   checkForUpdates({ silent: true });
 
   // 오버레이: 트레이/단축키 배선 + 마지막 모드 복원
-  await initOverlay({ restore: settings, onModeChange: () => {} });
+  await initOverlay({ restore: settings, onModeChange: onOverlayModeChange });
+}
+
+// 떠있는 도구막대 위치: 편집 모드에 들어오면 마지막 위치 복원, 나가면 인라인 해제
+// (창모드의 #sidebar는 position:relative라 인라인 left/top이 남으면 안 됨)
+let floatPos = null; // { left, top }
+function onOverlayModeChange(mode) {
+  if (mode === "edit") {
+    if (floatPos) applyFloatPos(floatPos);
+  } else {
+    el.sidebar.style.left = "";
+    el.sidebar.style.top = "";
+  }
+}
+function applyFloatPos({ left, top }) {
+  el.sidebar.style.left = left + "px";
+  el.sidebar.style.top = top + "px";
 }
 
 function wireOverlay() {
@@ -121,6 +142,47 @@ function wireOverlay() {
   const win = getCurrentWindow();
   el.btnMin.addEventListener("click", () => win.minimize());
   el.btnClose.addEventListener("click", () => win.hide()); // 닫기 = 트레이로 (Ambient)
+}
+
+// ---------- 사이드바: 접기/펼치기 + 떠있는 도구막대 드래그 ----------
+function wireSidebar() {
+  // 창모드 접기 토글 (상태 기억)
+  el.sidebarToggle.addEventListener("click", () => {
+    const collapsed = document.body.classList.toggle("sidebar-collapsed");
+    saveSettings({ sidebarCollapsed: collapsed });
+  });
+
+  // 오버레이 편집모드: 그립을 끌어 도구막대 이동
+  const grip = el.sidebarGrip;
+  let drag = null; // { dx, dy }
+  grip.addEventListener("pointerdown", (e) => {
+    // 편집 오버레이에서만 (그 외엔 그립이 숨겨져 있음)
+    const r = el.sidebar.getBoundingClientRect();
+    drag = { dx: e.clientX - r.left, dy: e.clientY - r.top };
+    grip.setPointerCapture(e.pointerId);
+    e.preventDefault();
+  });
+  grip.addEventListener("pointermove", (e) => {
+    if (!drag) return;
+    const w = el.sidebar.offsetWidth;
+    const h = el.sidebar.offsetHeight;
+    let left = e.clientX - drag.dx;
+    let top = e.clientY - drag.dy;
+    // 화면 안에 완전히 보이도록 클램프 (8px 여유)
+    left = Math.max(8, Math.min(left, window.innerWidth - w - 8));
+    top = Math.max(8, Math.min(top, window.innerHeight - h - 8));
+    floatPos = { left, top };
+    applyFloatPos(floatPos);
+  });
+  const end = (e) => {
+    if (!drag) return;
+    drag = null;
+    try {
+      grip.releasePointerCapture(e.pointerId);
+    } catch {}
+  };
+  grip.addEventListener("pointerup", end);
+  grip.addEventListener("pointercancel", end);
 }
 
 function wireSystem() {

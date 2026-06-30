@@ -1,6 +1,6 @@
 [package]
 name = "living-room"
-version = "0.1.2"
+version = "0.1.3"
 description = "리빙룸 — 내 컴퓨터를 집처럼 꾸미는 로컬 데스크탑 앱"
 authors = ["codeworks"]
 edition = "2021"

@@ -34,6 +34,8 @@ body {
 }
 
 /* ---------- 상단 바 ---------- */
+/* 캔버스는 창 전체에 풀블리드로 깔리고, 상단바·사이드바는 그 위에 뜬다.
+   덕분에 일반 창/오버레이의 스테이지 좌표공간이 동일해진다(이미지 안 움직임). */
 #topbar {
   height: 48px;
   flex: 0 0 auto;
@@ -43,6 +45,8 @@ body {
   padding: 0 16px;
   background: var(--panel);
   border-bottom: 1px solid var(--panel-border);
+  position: relative;
+  z-index: 10;
 }
 .topbar__title {
   font-weight: 700;
@@ -123,7 +127,7 @@ body {
   min-height: 0;
 }
 
-/* 좌측 패널 */
+/* 좌측 패널 (캔버스 위에 뜬다) */
 #sidebar {
   flex: 0 0 132px;
   background: var(--panel);
@@ -132,12 +136,36 @@ body {
   display: flex;
   flex-direction: column;
   gap: 8px;
+  position: relative;
+  z-index: 10;
 }
 .sidebar__group {
   margin-top: 6px;
   display: flex;
   flex-direction: column;
   gap: 6px;
+}
+
+/* 창모드: 사이드바 접기 */
+body.sidebar-collapsed:not(.overlay-mode) #sidebar {
+  display: none;
+}
+
+/* 드래그 그립 (오버레이 편집 모드의 떠있는 도구막대에서만 보임) */
+.sidebar-grip {
+  display: none;
+}
+body.overlay-mode.edit-mode .sidebar-grip {
+  display: block;
+  cursor: move;
+  font-size: 0.72rem;
+  letter-spacing: 0.04em;
+  color: var(--ink-soft);
+  padding: 1px 2px 7px;
+  margin: -2px 0 2px;
+  border-bottom: 1px dashed var(--panel-border);
+  user-select: none;
+  -webkit-user-select: none;
 }
 .sidebar__footer {
   margin-top: auto;
@@ -210,11 +238,11 @@ body {
   background: #eee;
 }
 
-/* 캔버스 영역 */
+/* 캔버스 영역 — 창 전체에 풀블리드(상단바·사이드바 뒤로 깔림) */
 #canvas-wrap {
-  position: relative;
-  flex: 1;
-  min-width: 0;
+  position: fixed;
+  inset: 0;
+  z-index: 0;
   overflow: hidden;
 }
 #stage {
@@ -253,7 +281,7 @@ body {
 .edit-panel {
   position: absolute;
   right: 16px;
-  top: 16px;
+  top: 64px; /* 풀블리드 캔버스 위, 상단바(48px) 아래로 */
   width: 236px;
   background: var(--panel);
   border: 1px solid var(--panel-border);
