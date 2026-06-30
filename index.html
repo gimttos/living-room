@@ -176,6 +176,29 @@
       </div>
     </div>
 
+    <!-- 일기장 (서재) -->
+    <div id="diary" class="book-reader" hidden>
+      <div class="book-reader__backdrop" id="diary-backdrop"></div>
+      <div class="book-reader__card diary-card">
+        <header class="book-reader__head diary-head">
+          <button id="diary-prev" class="iconbtn" title="이전 날">‹</button>
+          <div class="diary-date" id="diary-date"></div>
+          <button id="diary-next" class="iconbtn" title="다음 날">›</button>
+          <button id="diary-close" class="iconbtn" title="닫기 (Esc)">✕</button>
+        </header>
+        <div class="diary-stamps" id="diary-stamps" aria-label="오늘의 기분 도장"></div>
+        <textarea
+          id="diary-text"
+          class="r-text"
+          placeholder="오늘 어땠어? (안 써도 괜찮아)"
+        ></textarea>
+        <footer class="diary-foot">
+          <div class="diary-dots" id="diary-dots" aria-label="기록한 날"></div>
+          <button id="diary-today" class="btn">오늘로</button>
+        </footer>
+      </div>
+    </div>
+
     <input
       type="file"
       id="file-input"

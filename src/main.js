@@ -10,7 +10,15 @@ import {
   TEXT_DEFAULT_SIZE,
   BOOK,
   DEFAULT_BOOK_COLOR,
+  DIARY_STAMPS,
 } from "./js/config.js";
+import {
+  loadDiary,
+  getEntry,
+  getEntryDates,
+  setEntry,
+  saveDiary,
+} from "./js/diary.js";
 import {
   initCanvas,
   buildFromRoom,
@@ -98,6 +106,16 @@ const el = {
   rTitle: $("r-title"),
   rText: $("r-text"),
   rColors: $("r-colors"),
+  diary: $("diary"),
+  diaryBackdrop: $("diary-backdrop"),
+  diaryClose: $("diary-close"),
+  diaryPrev: $("diary-prev"),
+  diaryNext: $("diary-next"),
+  diaryToday: $("diary-today"),
+  diaryDate: $("diary-date"),
+  diaryStamps: $("diary-stamps"),
+  diaryText: $("diary-text"),
+  diaryDots: $("diary-dots"),
 };
 
 const STATUS_TEXT = {
@@ -126,10 +144,13 @@ async function boot() {
   // 테마 셀렉트 초기값
   el.themeSelect.value = room.data.background?.value || DEFAULT_THEME;
 
+  await loadDiary();
+
   initCanvas({
     container: el.stage,
     onSelectionChange: onSelection,
     onBookOpen: openBookReader,
+    onDiaryOpen: () => openDiary(todayStr()),
   });
 
   await buildFromRoom();
@@ -146,6 +167,7 @@ async function boot() {
   wireEditPanel();
   wireText();
   wireBookReader();
+  wireDiary();
   wireGlobalKeys();
   wireSystem();
   wireOverlay();
@@ -154,7 +176,10 @@ async function boot() {
   setRoomChrome(room.activeId);
 
   // 종료 전 마지막 저장 (best effort)
-  window.addEventListener("beforeunload", () => room.save());
+  window.addEventListener("beforeunload", () => {
+    room.save();
+    saveDiary();
+  });
 
   // 시작 시 조용히 업데이트 확인
   checkForUpdates({ silent: true });
@@ -229,6 +254,7 @@ async function switchRoom(id) {
     closeEditPanel();
     closeTextPanel();
     closeBookReader();
+    closeDiary();
     await room.save(); // 현재 방 저장
     await room.load(id); // 새 방 로드
     await rebuild(); // 캔버스 재구성
@@ -517,6 +543,106 @@ function markActiveSwatch(color) {
   el.rColors.querySelectorAll(".r-swatch").forEach((s) => {
     s.setAttribute("aria-pressed", String(s.dataset.color === color));
   });
+}
+
+// ---------- 일기장 (서재, 수집형·죄책감 0) ----------
+let diaryDate = null; // 현재 보고 있는 날짜 "YYYY-MM-DD"
+
+function pad2(n) {
+  return String(n).padStart(2, "0");
+}
+function todayStr() {
+  const d = new Date();
+  return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`;
+}
+function shiftDate(str, delta) {
+  const [y, m, d] = str.split("-").map(Number);
+  const dt = new Date(y, m - 1, d + delta);
+  return `${dt.getFullYear()}-${pad2(dt.getMonth() + 1)}-${pad2(dt.getDate())}`;
+}
+function formatDateLabel(str) {
+  const [y, m, d] = str.split("-").map(Number);
+  const dt = new Date(y, m - 1, d);
+  const days = ["일", "월", "화", "수", "목", "금", "토"];
+  const main = `${y}년 ${m}월 ${d}일 (${days[dt.getDay()]})`;
+  return str === todayStr() ? `${main}<small>오늘</small>` : main;
+}
+
+function wireDiary() {
+  // 기분 도장 버튼
+  for (const s of DIARY_STAMPS) {
+    const b = document.createElement("button");
+    b.className = "diary-stamp";
+    b.type = "button";
+    b.textContent = s;
+    b.dataset.stamp = s;
+    b.setAttribute("aria-pressed", "false");
+    b.addEventListener("click", () => toggleStamp(s));
+    el.diaryStamps.appendChild(b);
+  }
+
+  el.diaryText.addEventListener("input", () => {
+    if (diaryDate) setEntry(diaryDate, { text: el.diaryText.value });
+  });
+  el.diaryPrev.addEventListener("click", () => openDiary(shiftDate(diaryDate, -1)));
+  el.diaryNext.addEventListener("click", () => openDiary(shiftDate(diaryDate, 1)));
+  el.diaryToday.addEventListener("click", () => openDiary(todayStr()));
+  el.diaryClose.addEventListener("click", closeDiary);
+  el.diaryBackdrop.addEventListener("click", closeDiary);
+  el.diary.addEventListener("keydown", (e) => {
+    if (e.key === "Escape") {
+      e.stopPropagation();
+      closeDiary();
+    }
+  });
+}
+
+function openDiary(date) {
+  diaryDate = date;
+  const entry = getEntry(date);
+  el.diaryDate.innerHTML = formatDateLabel(date);
+  el.diaryText.value = entry.text || "";
+  el.diaryStamps.querySelectorAll(".diary-stamp").forEach((b) => {
+    b.setAttribute("aria-pressed", String(b.dataset.stamp === entry.moodStamp));
+  });
+  // 미래 날짜로는 안 넘어가게 '다음' 비활성
+  el.diaryNext.disabled = date >= todayStr();
+  renderDiaryDots();
+  el.diary.hidden = false;
+  el.diaryText.focus();
+}
+
+function closeDiary() {
+  if (!el.diary.hidden) saveDiary(); // 즉시 영속화
+  el.diary.hidden = true;
+  diaryDate = null;
+}
+
+function toggleStamp(stamp) {
+  if (!diaryDate) return;
+  const cur = getEntry(diaryDate).moodStamp;
+  const next = cur === stamp ? null : stamp; // 다시 누르면 해제
+  setEntry(diaryDate, { moodStamp: next });
+  el.diaryStamps.querySelectorAll(".diary-stamp").forEach((b) => {
+    b.setAttribute("aria-pressed", String(b.dataset.stamp === next));
+  });
+  renderDiaryDots();
+}
+
+// 기록한 날들 = "구경" 점프 칩
+function renderDiaryDots() {
+  el.diaryDots.innerHTML = "";
+  for (const d of getEntryDates()) {
+    const entry = getEntry(d);
+    const chip = document.createElement("button");
+    chip.type = "button";
+    chip.className = "diary-dot";
+    const [, m, day] = d.split("-");
+    chip.textContent = `${entry.moodStamp ? entry.moodStamp + " " : ""}${Number(m)}/${Number(day)}`;
+    chip.setAttribute("aria-current", String(d === diaryDate));
+    chip.addEventListener("click", () => openDiary(d));
+    el.diaryDots.appendChild(chip);
+  }
 }
 
 function openTextPanel() {

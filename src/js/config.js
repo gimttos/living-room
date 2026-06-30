@@ -96,3 +96,6 @@ export const BOOK = {
   colors: ["#c2553f", "#7a5cff", "#3f8f6b", "#c89b3c", "#4a6fa5", "#9a5ba6", "#5b6470"],
 };
 export const DEFAULT_BOOK_COLOR = BOOK.colors[0];
+
+// 일기 "오늘의 기분 도장" — 수집형 체크(강제·통계 없음, 내키면 찍는 장식)
+export const DIARY_STAMPS = ["☀️", "🌧️", "🌙", "✨", "💪", "☕", "🌸", "😴"];

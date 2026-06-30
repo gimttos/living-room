@@ -18,6 +18,8 @@ import { loadImageEl } from "./imageProcessing.js";
 let stage, bgLayer, objLayer, uiLayer, transformer;
 let onSelectionChange = () => {};
 let onBookOpen = () => {}; // 서재 책등 클릭 → 읽기
+let onDiaryOpen = () => {}; // 서재 일기책 클릭 → 일기
+let diaryNode = null; // 서재에 항상 꽂힌 일기 책(고정 비품)
 let bgVisible = true; // 오버레이 전시에선 false (순수 떠다니는 이미지)
 
 const nodeById = new Map(); // id -> Konva.Image
@@ -26,9 +28,15 @@ const urlById = new Map(); // id -> objectURL (해제용)
 let cropState = null; // 크롭 모드 상태
 
 // ---------- 초기화 ----------
-export function initCanvas({ container, onSelectionChange: cb, onBookOpen: bookCb }) {
+export function initCanvas({
+  container,
+  onSelectionChange: cb,
+  onBookOpen: bookCb,
+  onDiaryOpen: diaryCb,
+}) {
   onSelectionChange = cb || (() => {});
   onBookOpen = bookCb || (() => {});
+  onDiaryOpen = diaryCb || (() => {});
 
   stage = new Konva.Stage({
     container,
@@ -192,6 +200,7 @@ export async function rebuild() {
   selectById(null);
   if (cropState) cancelCrop();
   objLayer.destroyChildren();
+  diaryNode = null;
   nodeById.clear();
   for (const url of urlById.values()) URL.revokeObjectURL(url);
   urlById.clear();
@@ -209,7 +218,10 @@ export async function buildFromRoom() {
     if (obj.type === "image") await mountImageNode(obj);
     else if (obj.type === "text") mountTextNode(obj);
   }
-  if (room.data.kind === "study") arrangeBooks();
+  if (room.data.kind === "study") {
+    mountDiaryFixture();
+    arrangeBooks();
+  }
   objLayer.batchDraw();
 }
 
@@ -507,38 +519,106 @@ function layoutBookSpine(node, obj, wB, hB) {
   });
 }
 
-// 모든 책을 선반에 좌→우, 넘치면 다음 선반으로 자동 정렬.
+// 일기책(고정) → 사용자 책들 순서로 선반에 좌→우, 넘치면 다음 선반.
 function arrangeBooks() {
   const w = stage.width();
   const h = stage.height();
   const g = studyGeometry(w, h);
-  const books = room.data.objects
-    .filter((o) => o.type === "text")
-    .sort((a, b) => (a.zIndex ?? 0) - (b.zIndex ?? 0));
   const spineW = BOOK.spineW;
   const bookH = Math.round(g.gap * BOOK.heightRatio);
   const usableRight = w - g.margin;
+
+  const slots = [];
+  if (diaryNode) slots.push({ node: diaryNode, diary: true });
+  for (const obj of room.data.objects
+    .filter((o) => o.type === "text")
+    .sort((a, b) => (a.zIndex ?? 0) - (b.zIndex ?? 0))) {
+    const node = nodeById.get(obj.id);
+    if (node) slots.push({ node, obj });
+  }
+
   let row = 0;
   let x = g.margin;
-  for (const obj of books) {
-    const node = nodeById.get(obj.id);
-    if (!node) continue;
+  for (const slot of slots) {
     if (x + spineW > usableRight && x > g.margin) {
       row++;
       x = g.margin;
     }
     if (row >= g.rows) {
-      node.visible(false); // 선반 초과분은 숨김 (후속: 페이지)
+      slot.node.visible(false); // 선반 초과분은 숨김 (후속: 페이지)
       continue;
     }
-    node.visible(true);
+    slot.node.visible(true);
     const y = g.boards[row] - bookH;
-    layoutBookSpine(node, obj, spineW, bookH);
-    node.position({ x, y });
-    node.setAttr("baseY", y);
+    if (slot.diary) layoutDiarySpine(slot.node, spineW, bookH);
+    else layoutBookSpine(slot.node, slot.obj, spineW, bookH);
+    slot.node.position({ x, y });
+    slot.node.setAttr("baseY", y);
     x += spineW + BOOK.gap;
   }
   objLayer.batchDraw();
+}
+
+// 일기책: 서재에 항상 꽂힌 고정 비품 (책갈피 리본으로 구분).
+function mountDiaryFixture() {
+  const group = new Konva.Group({ name: "diary-spine" });
+  group.add(
+    new Konva.Rect({ name: "spine-body" }),
+    new Konva.Rect({ name: "diary-ribbon", listening: false }),
+    new Konva.Text({ name: "spine-title", rotation: 90, listening: false })
+  );
+  group.on("mouseenter", () => {
+    stage.container().style.cursor = "pointer";
+    group.y(group.getAttr("baseY") - 7);
+    objLayer.batchDraw();
+  });
+  group.on("mouseleave", () => {
+    stage.container().style.cursor = "default";
+    group.y(group.getAttr("baseY") ?? group.y());
+    objLayer.batchDraw();
+  });
+  group.on("click tap", (e) => {
+    e.cancelBubble = true;
+    onDiaryOpen();
+  });
+  objLayer.add(group);
+  diaryNode = group;
+  return group;
+}
+
+function layoutDiarySpine(node, wB, hB) {
+  const cover = "#8a5a3c"; // 가죽 다이어리 느낌
+  node.findOne(".spine-body").setAttrs({
+    x: 0,
+    y: 0,
+    width: wB,
+    height: hB,
+    fill: cover,
+    cornerRadius: [4, 4, 2, 2],
+    shadowColor: "rgba(40,25,10,0.4)",
+    shadowBlur: 6,
+    shadowOffsetX: 2,
+    shadowOpacity: 0.55,
+  });
+  // 책갈피 리본 (위에서 아래로 살짝 내려옴)
+  node.findOne(".diary-ribbon").setAttrs({
+    x: Math.round(wB * 0.5 - 3),
+    y: -6,
+    width: 6,
+    height: Math.round(hB * 0.34),
+    fill: "#c2553f",
+  });
+  node.findOne(".spine-title").setAttrs({
+    x: Math.round(wB * 0.72),
+    y: 9,
+    width: Math.max(10, hB - 18),
+    text: "일기",
+    fontSize: Math.max(11, Math.min(14, Math.round(wB * 0.42))),
+    fontFamily: '"Malgun Gothic","맑은 고딕",sans-serif',
+    fill: "rgba(255,255,255,0.95)",
+    ellipsis: true,
+    wrap: "none",
+  });
 }
 
 // 새 책 추가 (서재)
