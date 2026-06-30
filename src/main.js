@@ -1,10 +1,11 @@
 // 리빙룸 v1 — 거실. 부트스트랩 + UI 배선.
 import { room } from "./js/room.js";
 import { ensureDirs, deleteImageFile } from "./js/storage.js";
-import { DEFAULT_THEME } from "./js/config.js";
+import { DEFAULT_THEME, ROOMS, DEFAULT_ROOM } from "./js/config.js";
 import {
   initCanvas,
   buildFromRoom,
+  rebuild,
   setTheme,
   deleteSelected,
   bringForward,
@@ -60,6 +61,8 @@ const el = {
   sidebar: $("sidebar"),
   sidebarToggle: $("btn-sidebar-toggle"),
   sidebarGrip: $("sidebar-grip"),
+  roomTabs: $("room-tabs"),
+  roomTitle: document.querySelector(".topbar__title"),
 };
 
 const STATUS_TEXT = {
@@ -75,7 +78,10 @@ async function boot() {
   await ensureDirs();
   const settings = await loadSettings();
   if (settings.sidebarCollapsed) document.body.classList.add("sidebar-collapsed");
-  await room.load();
+  const startRoom = ROOMS.some((r) => r.id === settings.activeRoom)
+    ? settings.activeRoom
+    : DEFAULT_ROOM;
+  await room.load(startRoom);
 
   room.onStatus((s) => {
     el.saveStatus.textContent = STATUS_TEXT[s] || s;
@@ -106,6 +112,8 @@ async function boot() {
   wireSystem();
   wireOverlay();
   wireSidebar();
+  buildRoomTabs();
+  setRoomChrome(room.activeId);
 
   // 종료 전 마지막 저장 (best effort)
   window.addEventListener("beforeunload", () => room.save());
@@ -142,6 +150,48 @@ function wireOverlay() {
   const win = getCurrentWindow();
   el.btnMin.addEventListener("click", () => win.minimize());
   el.btnClose.addEventListener("click", () => win.hide()); // 닫기 = 트레이로 (Ambient)
+}
+
+// ---------- 멀티룸: 방 탭 + 전환 ----------
+function buildRoomTabs() {
+  el.roomTabs.innerHTML = "";
+  for (const r of ROOMS) {
+    const btn = document.createElement("button");
+    btn.className = "room-tab";
+    btn.textContent = r.name;
+    btn.dataset.room = r.id;
+    btn.setAttribute("aria-current", String(r.id === room.activeId));
+    btn.addEventListener("click", () => switchRoom(r.id));
+    el.roomTabs.appendChild(btn);
+  }
+}
+
+// 방 이름/탭 활성 표시 등 방 의존 크롬 갱신
+function setRoomChrome(id) {
+  if (el.roomTitle) el.roomTitle.textContent = room.data.name || id;
+  el.roomTabs.querySelectorAll(".room-tab").forEach((b) => {
+    b.setAttribute("aria-current", String(b.dataset.room === id));
+  });
+  el.themeSelect.value = room.data.background?.value || DEFAULT_THEME;
+}
+
+let switching = false;
+async function switchRoom(id) {
+  if (switching || id === room.activeId) return;
+  switching = true;
+  try {
+    closeEditPanel();
+    await room.save(); // 현재 방 저장
+    await room.load(id); // 새 방 로드
+    await rebuild(); // 캔버스 재구성
+    setRoomChrome(id);
+    refreshEmptyHint();
+    saveSettings({ activeRoom: id });
+  } catch (e) {
+    console.error("방 전환 실패:", e);
+  } finally {
+    switching = false;
+  }
 }
 
 // ---------- 사이드바: 접기/펼치기 + 떠있는 도구막대 드래그 ----------

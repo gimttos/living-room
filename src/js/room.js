@@ -1,13 +1,25 @@
 // 방 상태 저장소: 직렬화 가능한 평면 데이터(스키마 5-2)를 보관하고,
 // 변경 시 디바운스 자동 저장을 한다. Konva 노드는 캔버스가 이 데이터와 동기화한다.
-import { SCHEMA_VERSION, AUTOSAVE_DELAY, DEFAULT_THEME } from "./config.js";
+import {
+  SCHEMA_VERSION,
+  AUTOSAVE_DELAY,
+  DEFAULT_THEME,
+  DEFAULT_ROOM,
+  ROOMS,
+} from "./config.js";
 import { saveRoomJson, loadRoomJson } from "./storage.js";
 
-function defaultRoom() {
+function roomMeta(id) {
+  return ROOMS.find((r) => r.id === id) || { id, name: id, kind: "freeform" };
+}
+
+function defaultRoom(id = DEFAULT_ROOM) {
+  const meta = roomMeta(id);
   return {
     schemaVersion: SCHEMA_VERSION,
-    id: "living-room",
-    name: "거실",
+    id: meta.id,
+    name: meta.name,
+    kind: meta.kind,
     background: { type: "theme", value: DEFAULT_THEME },
     objects: [],
   };
@@ -25,18 +37,25 @@ export const room = {
     this._statusCb?.(s);
   },
 
-  async load() {
-    const loaded = await loadRoomJson();
+  // 활성 방 id
+  activeId: DEFAULT_ROOM,
+
+  async load(id = DEFAULT_ROOM) {
+    this.activeId = id;
+    const meta = roomMeta(id);
+    const loaded = await loadRoomJson(id);
     if (loaded && typeof loaded === "object") {
-      // 스키마 버전 확인 (v1은 1만 지원; 다르면 일단 그대로 읽되 경고)
-      if (loaded.schemaVersion !== SCHEMA_VERSION) {
-        console.warn(
-          `방 스키마 버전 불일치(파일 ${loaded.schemaVersion} ≠ 앱 ${SCHEMA_VERSION}). 그대로 로드 시도.`
-        );
-      }
-      this.data = { ...defaultRoom(), ...loaded };
+      // 마이그레이션(v1→v2는 가산적): 누락 필드 보정 후 현재 버전으로 승격
+      this.data = { ...defaultRoom(id), ...loaded };
+      this.data.id = id;
+      this.data.name = loaded.name || meta.name;
+      if (!this.data.kind) this.data.kind = meta.kind;
       if (!Array.isArray(this.data.objects)) this.data.objects = [];
-      if (!this.data.background) this.data.background = { type: "theme", value: DEFAULT_THEME };
+      if (!this.data.background)
+        this.data.background = { type: "theme", value: DEFAULT_THEME };
+      this.data.schemaVersion = SCHEMA_VERSION;
+    } else {
+      this.data = defaultRoom(id);
     }
     this._setStatus("saved");
     return this.data;

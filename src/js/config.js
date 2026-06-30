@@ -6,14 +6,25 @@ export const MAX_EDGE = 1500;
 // 저장 디바운스 (ms)
 export const AUTOSAVE_DELAY = 600;
 
-// 방 JSON 스키마 버전
-export const SCHEMA_VERSION = 1;
+// 방 JSON 스키마 버전 (v2: 멀티룸 + text 오브젝트)
+export const SCHEMA_VERSION = 2;
 
 // 앱 데이터 폴더 내 경로 (BaseDirectory.AppData 기준 상대경로)
-export const ROOM_PATH = "rooms/living-room.json";
 export const ROOMS_DIR = "rooms";
 export const IMAGES_DIR = "assets/images";
 export const SETTINGS_PATH = "settings.json";
+export const DIARY_PATH = "diary.json";
+
+// 방별 상태 파일 경로
+export const roomPath = (id) => `${ROOMS_DIR}/${id}.json`;
+
+// 방 레지스트리: "엔진 하나, 방은 인스턴스" (스펙 3장).
+// kind = 배경/허용 어포던스 분기 키. 새 방은 여기에 한 줄 추가하면 됨.
+export const ROOMS = [
+  { id: "living-room", name: "거실", kind: "freeform" },
+  { id: "study", name: "서재", kind: "study" },
+];
+export const DEFAULT_ROOM = "living-room";
 
 // 허용 이미지 타입 (정적만)
 export const ACCEPTED_TYPES = ["image/png", "image/jpeg", "image/webp"];

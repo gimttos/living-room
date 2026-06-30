@@ -146,6 +146,37 @@ body {
   gap: 6px;
 }
 
+/* 방 탭 (멀티룸 네비게이션) */
+.room-tabs {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-bottom: 4px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--panel-border);
+}
+.room-tab {
+  font: inherit;
+  font-size: 0.84rem;
+  text-align: left;
+  padding: 7px 10px;
+  border-radius: 8px;
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--ink-soft);
+  cursor: pointer;
+  transition: background 0.12s, color 0.12s;
+}
+.room-tab:hover {
+  background: var(--accent-soft);
+}
+.room-tab[aria-current="true"] {
+  background: var(--accent-soft);
+  border-color: var(--accent);
+  color: var(--ink);
+  font-weight: 600;
+}
+
 /* 창모드: 사이드바 접기 */
 body.sidebar-collapsed:not(.overlay-mode) #sidebar {
   display: none;

@@ -11,7 +11,7 @@ import {
   remove,
   BaseDirectory,
 } from "@tauri-apps/plugin-fs";
-import { ROOM_PATH, ROOMS_DIR, IMAGES_DIR } from "./config.js";
+import { roomPath, ROOMS_DIR, IMAGES_DIR } from "./config.js";
 
 const APP = { baseDir: BaseDirectory.AppData };
 
@@ -45,16 +45,17 @@ export async function deleteImageFile(src) {
 }
 
 export async function saveRoomJson(roomObj) {
-  await writeTextFile(ROOM_PATH, JSON.stringify(roomObj, null, 2), APP);
+  await writeTextFile(roomPath(roomObj.id), JSON.stringify(roomObj, null, 2), APP);
 }
 
-export async function loadRoomJson() {
-  if (!(await exists(ROOM_PATH, APP))) return null;
+export async function loadRoomJson(id) {
+  const path = roomPath(id);
+  if (!(await exists(path, APP))) return null;
   try {
-    const text = await readTextFile(ROOM_PATH, APP);
+    const text = await readTextFile(path, APP);
     return JSON.parse(text);
   } catch (e) {
-    console.error("방 JSON 파싱 실패:", e);
+    console.error("방 JSON 파싱 실패:", id, e);
     return null;
   }
 }

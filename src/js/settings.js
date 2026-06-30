@@ -3,7 +3,12 @@ import { readTextFile, writeTextFile, exists, BaseDirectory } from "@tauri-apps/
 import { SETTINGS_PATH } from "./config.js";
 
 const APP = { baseDir: BaseDirectory.AppData };
-const DEFAULTS = { overlayMode: false, editMode: false, sidebarCollapsed: false };
+const DEFAULTS = {
+  overlayMode: false,
+  editMode: false,
+  sidebarCollapsed: false,
+  activeRoom: "living-room",
+};
 
 let cache = { ...DEFAULTS };
 

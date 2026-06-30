@@ -83,25 +83,34 @@ export function renderBackground() {
   const themeKey = room.data.background?.value || DEFAULT_THEME;
   const t = THEMES[themeKey] || THEMES[DEFAULT_THEME];
 
-  const floorY = Math.round(h * 0.74);
+  if (room.data.kind === "study") renderStudyBg(w, h, t);
+  else renderFreeformBg(w, h, t);
 
-  // 벽 (세로 그라데이션)
+  bgLayer.batchDraw();
+}
+
+// 벽 그라데이션 헬퍼
+function addWall(w, hWall, t) {
   bgLayer.add(
     new Konva.Rect({
       x: 0,
       y: 0,
       width: w,
-      height: floorY,
+      height: hWall,
       fillLinearGradientStartPoint: { x: 0, y: 0 },
-      fillLinearGradientEndPoint: { x: 0, y: floorY },
+      fillLinearGradientEndPoint: { x: 0, y: hWall },
       fillLinearGradientColorStops: [0, t.wallTop, 1, t.wallBottom],
     })
   );
-  // 바닥
+}
+
+// 거실: 벽 + 바닥 + 선반 한 줄 (스펙 6, v1 그대로)
+function renderFreeformBg(w, h, t) {
+  const floorY = Math.round(h * 0.74);
+  addWall(w, floorY, t);
   bgLayer.add(
     new Konva.Rect({ x: 0, y: floorY, width: w, height: h - floorY, fill: t.floor })
   );
-  // 선반 한 줄 + 옅은 그림자
   const shelfY = Math.round(h * 0.5);
   bgLayer.add(
     new Konva.Rect({ x: 0, y: shelfY + 10, width: w, height: 14, fill: t.shelfShadow })
@@ -109,14 +118,68 @@ export function renderBackground() {
   bgLayer.add(
     new Konva.Rect({ x: 0, y: shelfY, width: w, height: 10, fill: t.shelf })
   );
+}
 
-  bgLayer.batchDraw();
+// 서재: 책장 선반 여러 줄 + 책상. "구경하는 서재" 분위기 (가벼운 Rect만).
+function renderStudyBg(w, h, t) {
+  const deskY = Math.round(h * 0.82); // 책상 윗면
+  addWall(w, deskY, t);
+
+  // 책장 선반 4줄 (상단~책상 위). 각 줄 = 옅은 그림자 + 선반판.
+  const top = Math.round(h * 0.1);
+  const rows = 4;
+  const gap = (deskY - top) / rows;
+  const margin = Math.round(Math.min(64, w * 0.05));
+  for (let i = 0; i < rows; i++) {
+    const y = Math.round(top + gap * (i + 1)) - 14;
+    bgLayer.add(
+      new Konva.Rect({
+        x: margin,
+        y: y + 11,
+        width: w - margin * 2,
+        height: 14,
+        fill: t.shelfShadow,
+        cornerRadius: 3,
+      })
+    );
+    bgLayer.add(
+      new Konva.Rect({
+        x: margin,
+        y,
+        width: w - margin * 2,
+        height: 11,
+        fill: t.shelf,
+        cornerRadius: 3,
+      })
+    );
+  }
+
+  // 책상 (바닥 대신 따뜻한 나무 면)
+  bgLayer.add(
+    new Konva.Rect({ x: 0, y: deskY, width: w, height: h - deskY, fill: t.floor })
+  );
+  // 책상 앞 모서리 그림자 한 줄
+  bgLayer.add(
+    new Konva.Rect({ x: 0, y: deskY, width: w, height: 6, fill: t.shelfShadow })
+  );
 }
 
 export function setTheme(themeKey) {
   if (!THEMES[themeKey]) return;
   room.setBackground({ type: "theme", value: themeKey });
   renderBackground();
+}
+
+// 방 전환: 기존 노드/URL 정리 후 활성 방(room.data)으로 재구성.
+export async function rebuild() {
+  selectById(null);
+  if (cropState) cancelCrop();
+  objLayer.destroyChildren();
+  nodeById.clear();
+  for (const url of urlById.values()) URL.revokeObjectURL(url);
+  urlById.clear();
+  renderBackground();
+  await buildFromRoom();
 }
 
 // ---------- 오브젝트 생성/로드 ----------
